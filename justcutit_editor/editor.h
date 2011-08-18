@@ -6,13 +6,16 @@
 
 #include <QtGui/QWidget>
 
-const int NUM_FRAMES = 60;
+#include "cutpointlist.h"
+#include "cutpointmodel.h"
 
 extern "C"
 {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 }
+
+const int NUM_FRAMES = 60;
 
 class Ui_Editor;
 
@@ -26,15 +29,21 @@ class Editor : public QWidget
 		void loadFile();
 		void pause();
 		
-		void seek_nextFrame();
-		void seek_time(float seconds);
-		void seek_timeExactBefore(float seconds);
+		void seek_nextFrame(bool display = true);
+		void seek_time(float seconds, bool display = true);
+		void seek_timeExact(float seconds, bool display = true);
+		void seek_timeExactBefore(float seconds, bool display = true);
 		void seek_plus1Second();
 		void seek_plus30Sec();
 		void seek_prevFrame();
 		void seek_minus1Second();
 		void seek_minus30Sec();
 		void seek_slider(int value);
+		
+		void cut_cut(CutPoint::Direction dir);
+		void cut_cutOutHere();
+		void cut_cutInHere();
+		void cut_pointActivated(QModelIndex idx);
 	private:
 		Ui_Editor* m_ui;
 		
@@ -51,6 +60,9 @@ class Editor : public QWidget
 		int m_timeStampStart;
 		float m_videoTimeBase;
 		bool m_fullBuffer;
+		
+		CutPointList m_cutPoints;
+		CutPointModel m_cutPointModel;
 		
 		void readFrame(bool needKeyFrame = false);
 		void displayCurrentFrame();

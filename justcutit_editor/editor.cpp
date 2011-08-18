@@ -13,10 +13,13 @@
 
 #include <stdio.h>
 
+#include "io_http.h"
+
 Editor::Editor(QWidget* parent)
  : QWidget(parent)
  , m_frameIdx(0)
  , m_headFrame(0)
+ , m_cutPointModel(&m_cutPoints)
 {
 	m_ui = new Ui_Editor;
 	m_ui->setupUi(this);
@@ -32,6 +35,14 @@ Editor::Editor(QWidget* parent)
 	connect(m_ui->prevButton, SIGNAL(clicked()), SLOT(seek_prevFrame()));
 	
 	connect(m_ui->timeSlider, SIGNAL(sliderMoved(int)), SLOT(seek_slider(int)));
+	
+	connect(m_ui->cutOutButton, SIGNAL(clicked()), SLOT(cut_cutOutHere()));
+	connect(m_ui->cutInButton, SIGNAL(clicked()), SLOT(cut_cutInHere()));
+	
+	m_ui->cutPointView->setModel(&m_cutPointModel);
+	m_ui->cutPointView->setRootIndex(QModelIndex());
+	
+	connect(m_ui->cutPointView, SIGNAL(activated(QModelIndex)), SLOT(cut_pointActivated(QModelIndex)));
 }
 
 Editor::~Editor()
@@ -42,26 +53,34 @@ Editor::~Editor()
 
 void Editor::loadFile()
 {
-	if(av_open_input_file(&m_stream, "/home/max/Downloads/Ben Hur.ts", NULL, 0, NULL) != 0)
+	const char *filename = "/home/max/Downloads/Ben Hur.ts";
+// 	const char *filename = "http://192.168.178.48:49152/content/internal-recordings/0/record/3144/recording.ts";
+	
+// 	m_stream = avformat_alloc_context();
+// 	m_stream->pb = io_http_create(filename);
+	m_stream = 0;
+	
+	if(avformat_open_input(&m_stream, filename, NULL, NULL) != 0)
 	{
-		fprintf(stderr, "Fatal: Could not open input file\n");
+		fprintf(stderr, "Fatal: Could not open input stream\n");
+		
 		return;
 	}
 	
-	if(av_find_stream_info(m_stream) < 0)
+	if(avformat_find_stream_info(m_stream, NULL) < 0)
 	{
 		fprintf(stderr, "Fatal: Could not find stream information\n");
 		return;
 	}
 	
-	dump_format(m_stream, 0, "/home/max/Downloads/Ben Hur.ts", false);
+	av_dump_format(m_stream, 0, "/home/max/Downloads/Ben Hur.ts", false);
 	
 	m_videoCodecCtx = 0;
 	for(int i = 0; i < m_stream->nb_streams; ++i)
 	{
 		AVStream* stream = m_stream->streams[i];
 		
-		if(stream->codec->codec_type == CODEC_TYPE_VIDEO)
+		if(stream->codec->codec_type == AVMEDIA_TYPE_VIDEO)
 		{
 			m_videoID = i;
 			m_videoCodecCtx = stream->codec;
@@ -82,7 +101,7 @@ void Editor::loadFile()
 		return;
 	}
 	
-	if(avcodec_open(m_videoCodecCtx, m_videoCodec) < 0)
+	if(avcodec_open2(m_videoCodecCtx, m_videoCodec, NULL) < 0)
 	{
 		fprintf(stderr, "Fatal: Could not open codec\n");
 		return;
@@ -98,6 +117,12 @@ void Editor::loadFile()
 	
 	printf("File duration is % 5.2fs\n", (float)m_stream->duration / AV_TIME_BASE);
 	m_ui->timeSlider->setMaximum(m_stream->duration / AV_TIME_BASE);
+	
+	int w = m_videoCodecCtx->width;
+	int h = m_videoCodecCtx->height;
+	
+	m_ui->videoWidget->setSize(w, h);
+	m_ui->cutVideoWidget->setSize(w, h);
 	
 	displayCurrentFrame();
 }
@@ -150,9 +175,7 @@ void Editor::readFrame(bool needKeyFrame)
 void Editor::displayCurrentFrame()
 {
 	m_ui->videoWidget->paintFrame(
-		m_frameBuffer[m_frameIdx],
-		m_videoCodecCtx->width,
-		m_videoCodecCtx->height
+		m_frameBuffer[m_frameIdx]
 	);
 	
 	m_ui->frameTypeLabel->setText(QString::number(m_frameBuffer[m_frameIdx]->key_frame));
@@ -172,7 +195,7 @@ void Editor::pause()
 {
 }
 
-void Editor::seek_nextFrame()
+void Editor::seek_nextFrame(bool display)
 {
 	if(++m_frameIdx == NUM_FRAMES)
 		m_frameIdx = 0;
@@ -187,7 +210,8 @@ void Editor::seek_nextFrame()
 		}
 	}
 	
-	displayCurrentFrame();
+	if(display)
+		displayCurrentFrame();
 }
 
 float Editor::frameTime(int idx)
@@ -199,7 +223,7 @@ float Editor::frameTime(int idx)
 		(m_frameTimestamps[idx] - m_timeStampStart);
 }
 
-void Editor::seek_time(float seconds)
+void Editor::seek_time(float seconds, bool display)
 {
 	int ts = m_timeStampStart + seconds / m_videoTimeBase;
 	int min_ts = ts - 2.0 / m_videoTimeBase;
@@ -214,16 +238,31 @@ void Editor::seek_time(float seconds)
 	}
 	
 	resetBuffer();
-	displayCurrentFrame();
+	
+	if(display)
+		displayCurrentFrame();
 }
 
-void Editor::seek_timeExactBefore(float seconds)
+void Editor::seek_timeExact(float seconds, bool display)
 {
-	for(int i = 0; frameTime() >= seconds; ++i)
-		seek_time(seconds - 0.5 * i);
+	for(int i = 0; i == 0 || frameTime() >= seconds; ++i)
+		seek_time(seconds - 1.0 * i, false);
 	
-	while(frameTime() < seconds)
-		seek_nextFrame();
+	if(seconds - frameTime() > 5.0)
+	{
+		printf("WARNING: Big gap: dest is %f, frameTime is %f\n", seconds, frameTime());
+	}
+	
+	while(frameTime() < seconds - 0.002)
+		seek_nextFrame(false);
+	
+	if(display)
+		displayCurrentFrame();
+}
+
+void Editor::seek_timeExactBefore(float seconds, bool)
+{
+	seek_timeExact(seconds, false);
 	
 	seek_prevFrame();
 }
@@ -279,18 +318,19 @@ void Editor::seek_minus30Sec()
 
 void Editor::initBuffer()
 {
+	int w = m_videoCodecCtx->width;
+	int h = m_videoCodecCtx->height;
+	
 	for(int i = 0; i < NUM_FRAMES; ++i)
 	{
 		avpicture_fill(
 			(AVPicture*)m_frameBuffer[i],
 			(uint8_t*)av_malloc(avpicture_get_size(
 				PIX_FMT_YUV420P,
-				m_videoCodecCtx->width,
-				m_videoCodecCtx->height
+				w, h
 			)),
 			PIX_FMT_YUV420P,
-			m_videoCodecCtx->width,
-			m_videoCodecCtx->height
+			w, h
 		);
 	}
 }
@@ -304,6 +344,58 @@ void Editor::seek_slider(int value)
 	seek_time(time);
 	
 	printf(" => % 3.3f\n", frameTime());
+}
+
+void Editor::cut_cut(CutPoint::Direction dir)
+{
+	int w = m_videoCodecCtx->width;
+	int h = m_videoCodecCtx->height;
+	
+	AVFrame* frame = avcodec_alloc_frame();
+	
+	avpicture_fill(
+		(AVPicture*)frame,
+		(uint8_t*)av_malloc(avpicture_get_size(
+			PIX_FMT_YUV420P,
+			w, h
+		)),
+		PIX_FMT_YUV420P,
+		w, h
+	);
+	
+	av_picture_copy(
+		(AVPicture*)frame,
+		(AVPicture*)m_frameBuffer[m_frameIdx],
+		PIX_FMT_YUV420P,
+		w, h
+	);
+	
+	int num = m_cutPoints.addCutPoint(frameTime(), dir, frame);
+	QModelIndex idx = m_cutPointModel.idxForNum(num);
+	m_ui->cutPointView->setCurrentIndex(idx);
+	cut_pointActivated(idx);
+}
+
+void Editor::cut_cutOutHere()
+{
+	cut_cut(CutPoint::CUT_OUT);
+}
+
+void Editor::cut_cutInHere()
+{
+	cut_cut(CutPoint::CUT_IN);
+}
+
+void Editor::cut_pointActivated(QModelIndex idx)
+{
+	CutPoint* point = m_cutPointModel.cutPointForIdx(idx);
+	
+	m_ui->cutVideoWidget->paintFrame(point->img);
+	if(fabs(frameTime() - point->time) > 0.005)
+	{
+		seek_timeExactBefore(point->time);
+		seek_nextFrame();
+	}
 }
 
 #include "editor.moc"

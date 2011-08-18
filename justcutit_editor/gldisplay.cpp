@@ -5,12 +5,14 @@
 
 #include "gldisplay.h"
 #include <GL/glext.h>
-#include "../../../../temp/avidemux_2.5.5/avidemux/ADM_inputs/ADM_nuv/lzoconf.h"
 
 GLDisplay::GLDisplay(QWidget* parent)
  : QGLWidget(parent)
  , m_frame(0)
+ , m_w(0)
+ , m_h(0)
 {
+	setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
 
 GLDisplay::~GLDisplay()
@@ -22,7 +24,6 @@ void GLDisplay::initializeGL()
 	glewInit();
 	
 	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_TEXTURE_2D);
 	
 	m_yuvShader.addShaderFromSourceFile(QGLShader::Vertex, "yuvtorgb_vertex.glsl");
@@ -63,16 +64,21 @@ void GLDisplay::resizeGL(int w, int h)
 	glLoadIdentity();
 }
 
-void GLDisplay::paintFrame(AVFrame* frame, int w, int h)
+void GLDisplay::setSize(int w, int h)
 {
-	m_frame = frame;
-	
 	if(m_w != w || m_h != h)
 	{
 		m_w = w;
 		m_h = h;
-		setMinimumSize(w/2, h/2);
+		updateGeometry();
 	}
+}
+
+void GLDisplay::paintFrame(AVFrame* frame)
+{
+	m_frame = frame;
+	
+	makeCurrent();
 	
 	for(int i = 0; i < 3; ++i)
 	{
@@ -84,7 +90,7 @@ void GLDisplay::paintFrame(AVFrame* frame, int w, int h)
 			0, // level
 			1, // type
 			frame->linesize[i], // width
-			(i == 0) ? h : h/2,
+			(i == 0) ? m_h : m_h/2,
 			0, // border
 			GL_LUMINANCE,
 			GL_UNSIGNED_BYTE,
@@ -92,12 +98,14 @@ void GLDisplay::paintFrame(AVFrame* frame, int w, int h)
 		);
 	}
 	
-	update();
+	doneCurrent();
+	
+	repaint();
 }
 
 QSize GLDisplay::sizeHint() const
 {
-	return QSize(m_w, m_h);
+	return QSize(m_w/2, m_h/2);
 }
 
 void GLDisplay::paintGL()
@@ -129,10 +137,11 @@ void GLDisplay::paintGL()
 		glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
 	}
 	
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f) ;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	glDrawArrays(GL_POLYGON, 0, 4);
+	
+	glFlush();
 }
 
 #include "gldisplay.moc"

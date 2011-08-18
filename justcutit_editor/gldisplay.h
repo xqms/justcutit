@@ -26,7 +26,8 @@ class GLDisplay : public QGLWidget
 		
 		virtual QSize sizeHint() const;
 		
-		void paintFrame(AVFrame* frame, int w, int h);
+		void setSize(int w, int h);
+		void paintFrame(AVFrame* frame);
 	private:
 		AVFrame* m_frame;
 		int m_w;
