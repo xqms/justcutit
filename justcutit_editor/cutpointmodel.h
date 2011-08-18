@@ -24,6 +24,7 @@ class CutPointModel : public QAbstractListModel
 	public slots:
 		 void aboutToInsert(int idx);
 		 void inserted(int idx);
+		 void listReset();
 	private:
 		CutPointList* m_list;
 };

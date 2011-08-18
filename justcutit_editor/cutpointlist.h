@@ -6,6 +6,7 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QList>
+#include <QtCore/QTextStream>
 
 extern "C"
 {
@@ -50,11 +51,18 @@ class CutPointList : public QObject
 		{ return m_list.count(); }
 		
 		CutPoint& operator[](int idx);
+		
+		void writeTo(QIODevice* device) const;
+		bool readFrom(QIODevice* device);
 	signals:
 		void aboutToInsert(int idx);
 		void inserted(int idx);
+		void reset();
 	private:
 		QList<CutPoint> m_list;
 };
+
+QTextStream& operator<<(QTextStream& stream, const CutPoint& point);
+QTextStream& operator>>(QTextStream& stream, CutPoint& point);
 
 #endif // CUTPOINT_H

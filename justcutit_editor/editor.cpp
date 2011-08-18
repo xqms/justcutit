@@ -6,7 +6,10 @@
 #include <QtGui/QVBoxLayout>
 
 #include <QtCore/QTimer>
+#include <QtCore/QFile>
 #include <QtGui/QImage>
+#include <QtGui/QFileDialog>
+#include <QtGui/QMessageBox>
 
 #include "ui_editor.h"
 #include "gldisplay.h"
@@ -43,6 +46,15 @@ Editor::Editor(QWidget* parent)
 	m_ui->cutPointView->setRootIndex(QModelIndex());
 	
 	connect(m_ui->cutPointView, SIGNAL(activated(QModelIndex)), SLOT(cut_pointActivated(QModelIndex)));
+	
+	QStyle* style = QApplication::style();
+	
+	m_ui->cutlistOpenButton->setIcon(QIcon::fromTheme("document-open"));
+	m_ui->cutlistSaveButton->setIcon(QIcon::fromTheme("document-save"));
+	m_ui->cutlistDelItemButton->setIcon(QIcon::fromTheme("list-remove"));
+	
+	connect(m_ui->cutlistOpenButton, SIGNAL(clicked()), SLOT(cut_openList()));
+	connect(m_ui->cutlistSaveButton, SIGNAL(clicked()), SLOT(cut_saveList()));
 }
 
 Editor::~Editor()
@@ -396,6 +408,94 @@ void Editor::cut_pointActivated(QModelIndex idx)
 		seek_timeExactBefore(point->time);
 		seek_nextFrame();
 	}
+}
+
+void Editor::cut_openList()
+{
+	QString filename = QFileDialog::getOpenFileName(
+		this,
+		"Open cutlist",
+		QString(),
+		"Cutlists (*.cut)"
+	);
+	
+	if(filename.isNull())
+		return;
+	
+	QFile file(filename);
+	if(!file.open(QIODevice::ReadOnly))
+	{
+		QMessageBox::critical(this, "Error", "Could not open cutlist file");
+		return;
+	}
+	
+	if(!m_cutPoints.readFrom(&file))
+	{
+		QMessageBox::critical(this, "Error", "Cutlist file is damaged");
+		return;
+	}
+	
+	file.close();
+	
+	// Generate images
+	int w = m_videoCodecCtx->width;
+	int h = m_videoCodecCtx->height;
+	
+	for(int i = 0; i < m_cutPoints.count(); ++i)
+	{
+		CutPoint& p = m_cutPoints.at(i);
+		
+		seek_timeExact(p.time, false);
+		
+		p.img = avcodec_alloc_frame();
+		avpicture_fill(
+			(AVPicture*)p.img,
+			(uint8_t*)av_malloc(avpicture_get_size(
+				PIX_FMT_YUV420P,
+				w, h
+			)),
+			PIX_FMT_YUV420P,
+			w, h
+		);
+		
+		av_picture_copy(
+			(AVPicture*)p.img,
+			(AVPicture*)m_frameBuffer[m_frameIdx],
+			PIX_FMT_YUV420P,
+			w, h
+		);
+	}
+	
+	if(m_cutPoints.count())
+	{
+		QModelIndex first = m_cutPointModel.idxForNum(0);
+		m_ui->cutPointView->setCurrentIndex(first);
+		cut_pointActivated(first);
+	}
+}
+
+void Editor::cut_saveList()
+{
+	QString filename = QFileDialog::getSaveFileName(
+		this,
+		"Open cutlist",
+		QString(),
+		"Cutlists (*.cut)"
+	);
+	
+	if(filename.isNull())
+		return;
+	
+	QFile file(filename);
+	if(!file.open(QIODevice::WriteOnly))
+	{
+		QMessageBox::critical(this, "Error", "Could not open output file");
+		return;
+	}
+	
+	m_cutPoints.writeTo(&file);
+	
+	file.close();
 }
 
 #include "editor.moc"

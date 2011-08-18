@@ -42,4 +42,65 @@ int CutPointList::nextCutPoint(float time)
 	return qLowerBound(m_list, dummy) - m_list.begin();
 }
 
+// SERIALIZING
+
+bool CutPointList::readFrom(QIODevice* device)
+{
+	m_list.clear();
+	
+	while(!device->atEnd())
+	{
+		QString line = device->readLine().trimmed();
+		
+		if(line.isEmpty())
+			continue;
+		
+		QTextStream stream(&line);
+		CutPoint point;
+		stream >> point;
+		
+		if(stream.status() != QTextStream::Ok)
+			return false;
+		
+		addCutPoint(point);
+	}
+	
+	emit reset();
+	
+	return true;
+}
+
+void CutPointList::writeTo(QIODevice* device) const
+{
+	QTextStream stream(device);
+	
+	foreach(const CutPoint& p, m_list)
+		stream << p << "\n";
+}
+
+QTextStream& operator<<(QTextStream& stream, const CutPoint& point)
+{
+	stream << point.time
+	       << " "
+	       << ((point.direction == CutPoint::CUT_IN) ? "IN" : "OUT");
+	return stream;
+}
+
+QTextStream& operator>>(QTextStream& stream, CutPoint& point)
+{
+	QString inout;
+	
+	stream >> point.time >> inout;
+	
+	if(inout == "IN")
+		point.direction = CutPoint::CUT_IN;
+	else if(inout == "OUT")
+		point.direction = CutPoint::CUT_OUT;
+	else
+		qFatal("Invalid direction specification: '%s' for cutpoint %f",
+			inout.toAscii().constData(), point.time);
+	
+	return stream;
+}
+
 #include "cutpointlist.moc"

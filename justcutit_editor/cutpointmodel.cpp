@@ -14,6 +14,7 @@ CutPointModel::CutPointModel(CutPointList* list)
 {
 	connect(list, SIGNAL(aboutToInsert(int)), SLOT(aboutToInsert(int)));
 	connect(list, SIGNAL(inserted(int)), SLOT(inserted(int)));
+	connect(list, SIGNAL(reset()), SLOT(listReset()));
 }
 
 CutPointModel::~CutPointModel()
@@ -33,6 +34,11 @@ void CutPointModel::aboutToInsert(int idx)
 void CutPointModel::inserted(int idx)
 {
 	endInsertRows();
+}
+
+void CutPointModel::listReset()
+{
+	reset();
 }
 
 QVariant CutPointModel::data(const QModelIndex& index, int role) const
