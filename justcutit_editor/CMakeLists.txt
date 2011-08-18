@@ -38,6 +38,7 @@ add_executable(justcutit_editor
 	io_http.cpp
 	cutpointlist.cpp
 	cutpointmodel.cpp
+	movieslider.cpp
 )
 
 target_link_libraries(justcutit_editor

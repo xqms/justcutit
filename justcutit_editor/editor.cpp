@@ -55,6 +55,8 @@ Editor::Editor(QWidget* parent)
 	
 	connect(m_ui->cutlistOpenButton, SIGNAL(clicked()), SLOT(cut_openList()));
 	connect(m_ui->cutlistSaveButton, SIGNAL(clicked()), SLOT(cut_saveList()));
+	
+	m_ui->timeSlider->setList(&m_cutPoints);
 }
 
 Editor::~Editor()
