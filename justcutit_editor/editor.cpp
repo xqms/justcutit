@@ -123,10 +123,11 @@ void Editor::loadFile()
 	
 	readFrame(true);
 	
+	m_timeStampStart = m_frameTimestamps[0];
+	
 	initBuffer();
 	resetBuffer();
 	
-	m_timeStampStart = m_frameTimestamps[0];
 	m_videoTimeBase = av_q2d(m_stream->streams[m_videoID]->time_base);
 	
 	printf("File duration is % 5.2fs\n", (float)m_stream->duration / AV_TIME_BASE);
