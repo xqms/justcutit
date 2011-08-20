@@ -177,6 +177,8 @@ void Editor::readFrame(bool needKeyFrame)
 			m_videoCodecCtx->height
 		);
 		
+		m_frameBuffer[m_headFrame]->pict_type = frame.pict_type;
+		
 		av_free_packet(&packet);
 		
 		if(!needKeyFrame)
@@ -193,7 +195,7 @@ void Editor::displayCurrentFrame()
 		m_frameBuffer[m_frameIdx]
 	);
 	
-	m_ui->frameTypeLabel->setText(QString::number(m_frameBuffer[m_frameIdx]->key_frame));
+	m_ui->frameTypeLabel->setText(QString::number(m_frameBuffer[m_frameIdx]->pict_type));
 	m_ui->timeStampLabel->setText(QString("%1s").arg(frameTime(m_frameIdx), 7, 'f', 4));
 	m_ui->headIdxLabel->setText(QString::number(m_headFrame));
 	m_ui->frameIdxLabel->setText(QString::number(m_frameIdx));
