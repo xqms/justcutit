@@ -13,6 +13,7 @@ extern "C"
 #include <stdio.h>
 #include <vector>
 #include <map>
+#include <queue>
 #include <unistd.h>
 
 #include "../justcutit_editor/gldisplay.h"
@@ -24,6 +25,8 @@ struct CutPoint
 	float time;
 	enum Direction { IN, OUT } direction;
 };
+
+typedef std::map<int, int> StreamMap;
 
 void usage(FILE* dest)
 {
@@ -71,7 +74,22 @@ bool readCutlist(FILE* file, CutPoint::List* dest)
 	return true;
 }
 
-void flush_out_encoder(AVStream* stream, AVFormatContext* ctx, AVPacket* packet, int BUFSIZE)
+bool start_encoder(AVStream* stream)
+{
+	AVCodec* codec = (AVCodec*)stream->codec->opaque;
+	
+	if(avcodec_open2(stream->codec, codec, 0) != 0)
+	{
+		fprintf(stderr, "Fatal: Could not open video encoder\n");
+		return false;
+	}
+	
+	printf("[ENCODER] Encoder opened.\n");
+	
+	return true;
+}
+
+bool flush_out_encoder(AVStream* stream, AVFormatContext* ctx, AVPacket* packet, int BUFSIZE, int64_t* lastCodedPTS)
 {
 	AVCodecContext* codec = stream->codec;
 	
@@ -97,8 +115,123 @@ void flush_out_encoder(AVStream* stream, AVFormatContext* ctx, AVPacket* packet,
 		if(codec->coded_frame->key_frame)
 			packet->flags |= AV_PKT_FLAG_KEY;
 		
+		*lastCodedPTS = packet->pts;
+		
+		printf("[ENCODE] Flushing packet out of encoder: %10lld\n", packet->pts);
+		
 		av_interleaved_write_frame(ctx, packet);
 		av_init_packet(packet);
+	}
+	
+	avcodec_close(stream->codec);
+}
+
+bool openInputStreams(AVFormatContext* ctx, int* videoIdx)
+{
+	*videoIdx = -1;
+	
+	for(int i = 0; i < ctx->nb_streams; ++i)
+	{
+		AVStream* stream = ctx->streams[i];
+		
+		// We only need codecs for the video stream
+		if(stream->codec->codec_type != AVMEDIA_TYPE_VIDEO)
+			continue;
+		
+		if(*videoIdx != -1)
+		{
+			fprintf(stderr, "Fatal: Multiple video streams, this is unhandled at this point\n");
+			return false;
+		}
+		
+		*videoIdx = i;
+		
+		AVCodec* codec = avcodec_find_decoder(stream->codec->codec_id);
+		if(!codec)
+		{
+			fprintf(stderr, "Fatal: Could not find codec for decoding stream %d\n", i);
+			return false;
+		}
+		
+		if(avcodec_open2(stream->codec, codec, 0) != 0)
+		{
+			fprintf(stderr, "Fatal: Could not open codec for decoding stream %d\n", i);
+			return false;
+		}
+	}
+	
+	if(*videoIdx == -1)
+	{
+		fprintf(stderr, "Fatal: No video streams found\n");
+		return false;
+	}
+	
+	return true;
+}
+
+bool setupOutputStreams(AVFormatContext* input, AVFormatContext* output, StreamMap* map)
+{
+	for(int i = 0; i < input->nb_programs; ++i)
+	{
+		AVProgram* program = input->programs[i];
+		
+		// Skip empty programs
+		if(program->nb_stream_indexes == 0)
+			continue;
+		
+		AVProgram* oprogram = av_new_program(output, program->id);
+		
+		for(int j = 0; j < program->nb_stream_indexes; ++j)
+		{
+			AVStream* istream = input->streams[program->stream_index[j]];
+			
+			// Only do video stream for now
+			if(istream->codec->codec_type != AVMEDIA_TYPE_VIDEO && istream->codec->codec_type != AVMEDIA_TYPE_AUDIO)
+				continue;
+			
+			AVStream* ostream = av_new_stream(output, istream->id);
+			
+			// Register with program
+			oprogram->nb_stream_indexes++;
+			oprogram->stream_index = (unsigned int*)av_realloc(
+				oprogram->stream_index, oprogram->nb_stream_indexes
+			);
+			oprogram->stream_index[oprogram->nb_stream_indexes-1] = ostream->index;
+			
+// 			if(istream->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+// 			{
+				// Get codec
+				AVCodec* codec = avcodec_find_encoder(istream->codec->codec_id);
+				if(!codec)
+				{
+					fprintf(stderr, "Fatal: Could not find codec for encoding stream %d\n",
+						program->stream_index[j]
+					);
+					return false;
+				}
+				
+				// Copy codec settings
+				ostream->codec = avcodec_alloc_context3(codec);
+				avcodec_copy_context(ostream->codec, istream->codec);
+				
+				// Codec/stream parameters
+				ostream->time_base = istream->time_base;
+				
+				// MPEG-2 comes with time_base=1/50 and ticks_per_frame=2
+				//  the encoder expects time_base=1/fps
+				ostream->codec->time_base = av_mul_q(ostream->codec->time_base, (AVRational){istream->codec->ticks_per_frame,1});
+				ostream->codec->ticks_per_frame = 1;
+				ostream->sample_aspect_ratio = istream->codec->sample_aspect_ratio;
+				
+				ostream->codec->rc_buffer_size = 0;
+				ostream->codec->max_b_frames = 0;
+				
+				// Save codec pointer for later opening
+				ostream->codec->opaque = (void*)codec;
+// 			}
+			
+			(*map)[istream->index] = ostream->index;
+		}
 	}
 }
 
@@ -168,114 +301,48 @@ int main(int argc, char** argv)
 	}
 	
 	output_ctx->oformat->flags |= AVFMT_TS_NONSTRICT;
-	AVCodec* videoCodec;
-	for(int i = 0; i < ctx->nb_programs; ++i)
-	{
-		AVProgram* prog = ctx->programs[i];
-		
-		if(!prog->nb_stream_indexes)
-			continue;
-		
-		AVProgram* oprog = av_new_program(output_ctx, prog->id);
-		
-		for(int j = 0; j < prog->nb_stream_indexes; ++j)
-		{
-			AVStream* stream = ctx->streams[prog->stream_index[j]];
-			AVMediaType type = stream->codec->codec_type;
-			
-			if(type != AVMEDIA_TYPE_VIDEO /*&& type != AVMEDIA_TYPE_AUDIO*/)
-			{
-// 				stream->discard = AVDISCARD_ALL;
-				continue;
-			}
-			
-			if(type == AVMEDIA_TYPE_VIDEO)
-				videoIdx = stream->index;
-			
-			// Init codec
-			AVCodec* codec = avcodec_find_decoder(stream->codec->codec_id);
-			if(!codec)
-			{
-				fprintf(stderr, "Fatal: Could not find decoder for stream %d\n", stream->index);
-				return 1;
-			}
-			if(avcodec_open2(stream->codec, codec, 0) != 0)
-			{
-				fprintf(stderr, "Fatal: Could not open encoder for stream %d\n", stream->index);
-				return 1;
-			}
-			
-			AVStream* ostream = av_new_stream(output_ctx, stream->id);
-			
-			ostream->codec = avcodec_alloc_context3(stream->codec->codec);
-			avcodec_copy_context(ostream->codec, stream->codec);
-			
-			ostream->codec->rc_buffer_size = 0;
-			ostream->codec->rc_initial_buffer_occupancy = ostream->codec->rc_buffer_size*3/4;
-			ostream->codec->max_b_frames = 1;
-			ostream->codec->time_base = (AVRational){1,25};
-			printf("Rate control settings:\n");
-			printf(" - min_rate: %d\n", ostream->codec->rc_min_rate);
-			printf(" - max_rate: %d\n", ostream->codec->rc_max_rate);
-			printf(" - bit_rate: %d\n", ostream->codec->bit_rate);
-			printf(" - bit_rate_tolerance: %d\n", ostream->codec->bit_rate_tolerance);
-			printf(" - gop_size: %d\n", ostream->codec->gop_size);
-			printf("FPS settings:\n");
-			printf(" - time_base: %d / %d\n", ostream->codec->time_base.num, ostream->codec->time_base.den);
-			videoCodec = avcodec_find_encoder(stream->codec->codec_id);
-			if(!videoCodec)
-			{
-				fprintf(stderr, "Fatal: Could not find encoder for stream %d\n", ostream->index);
-				return 1;
-			}
-			
-			ostream->sample_aspect_ratio = stream->codec->sample_aspect_ratio;
-			
-			oprog->nb_stream_indexes++;
-			oprog->stream_index = (unsigned int*)av_realloc(
-				(void*)oprog->stream_index,
-				sizeof(int) * oprog->nb_stream_indexes
-			);
-			
-			oprog->stream_index[oprog->nb_stream_indexes-1] = ostream->index;
-			
-			stream_mapping[stream->index] = ostream->index;
-		}
-	}
 	
+	if(!openInputStreams(ctx, &videoIdx))
+		return 1;
+	
+	if(!setupOutputStreams(ctx, output_ctx, &stream_mapping))
+		return 1;
+	
+	printf(" [+] Output streams:\n");
 	av_dump_format(output_ctx, 0, argv[3], true);
-	avformat_write_header(output_ctx, 0);
 	
+	
+	avformat_write_header(output_ctx, 0);
 	
 	QApplication app(argc, argv);
 	
 	
+	enum State
+	{
+		ST_SKIPPING                          = 0,
+		ST_COPY                              = 1,
+		ST_ENCODE                            = 2,
+	} state;
+	
+	enum EncoderState
+	{
+		EST_ENCODE_WAIT_FOR_BEGIN            = 0,
+		EST_ENCODE_ENCODING                  = (1 << 1),
+		EST_ENCODE_WAIT_FOR_KEYFRAME_PACKET  = (1 << 2) | (1 << 1),
+		EST_ENCODE_WAIT_FOR_KEYFRAME_FRAME   = (1 << 3) | (1 << 1)
+	} encoderState;
+	
+	state = (cutlist[0].direction == CutPoint::IN) ? ST_SKIPPING : ST_COPY;
+	
 	AVPacket packet;
 	int64_t start_dts;
 	bool first_packet = true;
-	bool skipping = (cutlist[0].direction == CutPoint::IN);
-// 	bool skipping = false;
-	bool encoding = false;
-	int waitingForKeyFrame = 0;
+	int keyframePacketCount = 0;
 	int cutlist_idx = 0;
 	AVStream* videoStream = ctx->streams[videoIdx];
 	AVFrame* frame = avcodec_alloc_frame();
 	avpicture_fill(
 		(AVPicture*)frame,
-		(uint8_t*)av_malloc(
-			avpicture_get_size(
-				videoStream->codec->pix_fmt,
-				videoStream->codec->width,
-				videoStream->codec->height
-			)
-		),
-		videoStream->codec->pix_fmt,
-		videoStream->codec->width,
-		videoStream->codec->height
-	);
-	AVFrame* output_frame = avcodec_alloc_frame();
-	avpicture_fill(
-		(AVPicture*)output_frame,
 		(uint8_t*)av_malloc(
 			avpicture_get_size(
 				videoStream->codec->pix_fmt,
@@ -293,7 +360,12 @@ int main(int argc, char** argv)
 	av_new_packet(&output_packet, BUFSIZE);
 	int64_t totalSkipDTS = 0;
 	int64_t cutoffDTS = 0;
+	int64_t cutInPTS = 0;
+	int64_t lastCodedPTS = 0;
+	int64_t minReplayPTS = -1;
 	int64_t encodeOffsetDTS = 0;
+	int printPackets = 0;
+	std::queue<AVPacket> replayPackets;
 	
 	QWidget w;
 	GLDisplay display(&w);
@@ -310,15 +382,15 @@ int main(int argc, char** argv)
 		if(it == stream_mapping.end())
 			continue;
 		
-		AVStream* stream = ctx->streams[packet.stream_index];
+		AVStream* istream = ctx->streams[packet.stream_index];
 		AVStream* ostream = output_ctx->streams[it->second];
 		
-		if(stream->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+		if(istream->codec->codec_type == AVMEDIA_TYPE_VIDEO)
 		{
-			float d = av_q2d(stream->time_base);
+			float d = av_q2d(istream->time_base);
 			
 			int gotFrame;
-			if(avcodec_decode_video2(stream->codec, frame, &gotFrame, &packet) < 0)
+			if(avcodec_decode_video2(istream->codec, frame, &gotFrame, &packet) < 0)
 			{
 				fprintf(stderr, "Error while decoding video frame\n");
 				return 1;
@@ -337,106 +409,157 @@ int main(int argc, char** argv)
 				printf("packet without frame\n");
 			
 			float time = d * (packet.dts - start_dts);
-			bool nextState = false;
+			State nextState = state;
 			
 			CutPoint* nc = 0;
 			
 			if(cutlist_idx < cutlist.size())
 			{
 				nc = &cutlist[cutlist_idx];
-				nextState = nc->direction == CutPoint::OUT;
+				nextState = (nc->direction == CutPoint::OUT) ? ST_SKIPPING : ST_COPY;
 			}
 			
-			if(nc && !encoding && time + 1.0 > nc->time && nextState != skipping)
+			if(nc && state != ST_ENCODE && time + 1.0 > nc->time && nextState != state)
 			{
-				printf("% 7.3f: Time to re-encode!\n", time);
-				
-				if(avcodec_open2(ostream->codec, videoCodec, 0) != 0)
-				{
-					fprintf(stderr, "Fatal: Could not open encoder for stream %d\n", ostream->index);
-	// 				return 1;
-				}
-				
-				encoding = true;
+				if(!start_encoder(ostream))
+					return 1;
+				state = ST_ENCODE;
+				encoderState = EST_ENCODE_WAIT_FOR_BEGIN;
 			}
 			
-			if(encoding)
+			if(state == ST_ENCODE)
 			{
 				time = d * (packet.dts - start_dts);
 				
 				if(gotFrame)
 				{
-					bool forceKeyFrame = false;
-					
-					if(frame->key_frame)
-						printf("% 7.3f: [ENCODE] keyframe\n", time);
-					
 					if(nc && time >= nc->time)
 					{
-						if(!skipping && nextState) // CUT OUT
+						if(nextState == ST_SKIPPING) // CUT OUT
 						{
 							printf("% 7.3f: [ENCODE] [CUT_OUT] Now at cutpoint %d, directly breaking...\n", time, cutlist_idx);
-							encoding = false;
+							state = nextState;
+							encoderState = EST_ENCODE_WAIT_FOR_BEGIN;
 							cutoffDTS = packet.dts;
-							flush_out_encoder(ostream, output_ctx, &output_packet, BUFSIZE);
-							avcodec_flush_buffers(ostream->codec);
-							avcodec_close(ostream->codec);
+							flush_out_encoder(ostream, output_ctx, &output_packet, BUFSIZE, &lastCodedPTS);
 							getchar();
 						}
 						else // CUT IN
 						{
 							printf("% 7.3f: [ENCODE] [CUT_IN] Now at cutpoint %d, waiting for next keyframe\n", time, cutlist_idx);
-							waitingForKeyFrame = 5;
+							encoderState = EST_ENCODE_WAIT_FOR_KEYFRAME_PACKET;
+							keyframePacketCount = 5;
 							
 							printf("startDTS = %lld, cutoffDTS = %lld, current DTS = %lld\n", start_dts, cutoffDTS, packet.dts);
 							totalSkipDTS += packet.dts - cutoffDTS;
 							printf(" => total skip: %lld\n", totalSkipDTS);
+							cutInPTS = packet.dts;
 							getchar();
 						}
 						
-						skipping = nextState;
-						forceKeyFrame = true;
 						cutlist_idx++;
 						
-						if(cutlist_idx == cutlist.size() && skipping)
+						if(cutlist_idx == cutlist.size() && state == ST_SKIPPING)
 							break;
 					}
 					
-					if(encoding && packet.flags & AV_PKT_FLAG_KEY && waitingForKeyFrame)
+					if(encoderState == EST_ENCODE_WAIT_FOR_KEYFRAME_PACKET
+						&& packet.flags & AV_PKT_FLAG_KEY)
 					{
-						waitingForKeyFrame--;
-						
-						if(!waitingForKeyFrame)
+						keyframePacketCount--;
+						if(!keyframePacketCount)
 						{
-							printf("% 7.3f: [ENCODE] found keyframe, giving over to copy algorithm\n", time);
+							printf("Got keyframe packet with DTS = %lld and PTS = %lld\n", packet.dts, packet.pts);
+							
+#if 1
+							encoderState = EST_ENCODE_WAIT_FOR_KEYFRAME_FRAME;
+							minReplayPTS = -1;
+#else
+							encoderState = EST_ENCODE_WAIT_FOR_BEGIN;
+							state = ST_COPY;
+							printPackets = 10;
+							
+							flush_out_encoder(ostream, output_ctx, &output_packet, BUFSIZE, &lastCodedPTS);
+							printf("Last coded PTS = %lld\n", lastCodedPTS);
 							getchar();
-							
-							encoding = false;
-							waitingForKeyFrame = false;
-							
-							flush_out_encoder(ostream, output_ctx, &output_packet, BUFSIZE);
-							avcodec_flush_buffers(ostream->codec);
-							avcodec_close(ostream->codec);
+#endif
 						}
 					}
-					else if(encoding && !skipping)
+					
+					if(encoderState == EST_ENCODE_WAIT_FOR_KEYFRAME_FRAME)
+					{
+						if(frame->key_frame)
+						{
+							printf("% 7.3f: [ENCODE] found keyframe with pts = %lld, pkt_pts = %lld, pkt_dts = %lld, packet->dts = %lld, giving over to copy algorithm\n",
+								time, frame->pts, frame->pkt_dts, frame->pkt_dts, packet.dts);
+							getchar();
+							
+							encoderState = EST_ENCODE_WAIT_FOR_BEGIN;
+							state = ST_COPY;
+							
+							printPackets = 10;
+							
+							flush_out_encoder(ostream, output_ctx, &output_packet, BUFSIZE, &lastCodedPTS);
+							
+							int keyFramePTS = replayPackets.front().pts;
+							/*
+							// Timing:
+							//  packet.dts is the PTS of current frame
+							totalSkipDTS -= packet.dts - cutInDTS;*/
+							int64_t frameTime = av_rescale_q(1, ostream->codec->time_base, ostream->time_base);
+							totalSkipDTS =  keyFramePTS - lastCodedPTS;
+							
+							while(!replayPackets.empty())
+							{
+								AVPacket packet = replayPackets.front();
+								replayPackets.pop();
+								
+								
+								
+								printf("Replaying packet with PTS %lld, key frame: %d\n", packet.pts, packet.flags & AV_PKT_FLAG_KEY);
+								
+								packet.pts -= totalSkipDTS;
+								
+// 								if(packet.pts >= keyFramePTS)
+// 								{
+									av_pkt_dump2(stdout, &packet, 0, ostream);
+									av_interleaved_write_frame(output_ctx, &packet);
+// 								}
+								av_free_packet(&packet);
+							}
+						}
+						else
+						{
+							AVPacket save_packet;
+							av_init_packet(&save_packet);
+							save_packet.data = (uint8_t*)av_malloc(packet.size);
+							save_packet.size = packet.size;
+							memcpy((void*)save_packet.data, (void*)packet.data, packet.size);
+							
+							save_packet.stream_index = ostream->index;
+							save_packet.dts = AV_NOPTS_VALUE;
+							save_packet.pts = packet.pts;
+							save_packet.flags = packet.flags;
+							
+							if(minReplayPTS < 0 || packet.pts < minReplayPTS)
+								minReplayPTS = packet.pts;
+							
+							replayPackets.push(save_packet);
+						}
+					}
+					
+					if(encoderState & EST_ENCODE_ENCODING)
 					{
 						av_init_packet(&output_packet);
 						
-						output_frame->pts = av_rescale_q(packet.dts - totalSkipDTS, stream->time_base, ostream->codec->time_base);
+						frame->pts = av_rescale_q(frame->pkt_pts - cutInPTS, istream->time_base, ostream->codec->time_base);
+						frame->pict_type = AV_PICTURE_TYPE_NONE; // Let the codec handle picture types
 						
-						printf("[ENCODE] Input PTS: %lld\n", output_frame->pts);
-						
-						if(forceKeyFrame)
-							frame->key_frame = true;
+						printf("[ENCODE] Input PTS: %lld\n", frame->pts);
 						
 						printf("[ENCODE] Encoding, key_frame = %d\n", frame->key_frame);
-						av_picture_copy((AVPicture*)output_frame, (AVPicture*)frame, PIX_FMT_YUV420P, stream->codec->width, stream->codec->height);
-						output_frame->best_effort_timestamp = AV_NOPTS_VALUE;
-						output_frame->pkt_pos = -1;
-						output_frame->key_frame = 1;
 						
-						int bytes = avcodec_encode_video(ostream->codec, output_packet.data, BUFSIZE, output_frame);
+						int bytes = avcodec_encode_video(ostream->codec, output_packet.data, BUFSIZE, frame);
 						
 						if(bytes < 0)
 						{
@@ -446,34 +569,47 @@ int main(int argc, char** argv)
 						
 						if(bytes)
 						{
-							printf("[OUTPUT] Got coded frame with PTS %lld\n", ostream->codec->coded_frame->pts);
 							output_packet.dts = AV_NOPTS_VALUE;
-							output_packet.pts = av_rescale_q(ostream->codec->coded_frame->pts, ostream->codec->time_base, ostream->time_base);
+							output_packet.pts = av_rescale_q(ostream->codec->coded_frame->pts, ostream->codec->time_base, ostream->time_base) + cutInPTS - totalSkipDTS;
 							output_packet.size = bytes;
 							output_packet.stream_index = it->second;
 							
 							if(ostream->codec->coded_frame->key_frame)
-							{
-								printf("[OUTPUT] keyframe!\n");
 								output_packet.flags |= AV_PKT_FLAG_KEY;
-							}
 							
-							printf("[OUTPUT] writing packet with PTS %lld\n", output_packet.pts);
+							lastCodedPTS = output_packet.pts;
 							
+							av_pkt_dump2(stdout, &output_packet, 0, ostream);
 							av_interleaved_write_frame(output_ctx, &output_packet);
 							av_init_packet(&output_packet);
 						}
 					}
+					
+					printf("[ENCODE] Packet stream: pts=%10lld dts=%10lld key=%d | Frame stream: pts=%10lld pict_type=%d | Encoded stream: pts=%10lld, pict_type=%d\n",
+						packet.pts - totalSkipDTS, packet.dts - totalSkipDTS, packet.flags & AV_PKT_FLAG_KEY,
+						frame->pkt_pts - totalSkipDTS, frame->pict_type,
+						lastCodedPTS, ostream->codec->coded_frame ? ostream->codec->coded_frame->key_frame : 2,
+						ostream->codec->coded_frame ? ostream->codec->coded_frame->pict_type : 10
+					);
 				}
 			}
 		}
 		
-		packet.stream_index = it->second;
-		packet.dts -= totalSkipDTS;
-		packet.pts -= totalSkipDTS;
-		
-		if(!skipping && !encoding)
+		if(state == ST_COPY || (state == ST_ENCODE && encoderState & EST_ENCODE_ENCODING && istream->codec->codec_type != AVMEDIA_TYPE_VIDEO))
+		{
+			packet.stream_index = it->second;
+			packet.dts = AV_NOPTS_VALUE;
+			packet.pts -= totalSkipDTS;
+			
+			if(printPackets > 0)
+			{
+				printf("[ COPY ] Writing packet with PTS %lld\n", packet.pts);
+				av_pkt_dump2(stdout, &packet, 0, ostream);
+				printPackets--;
+			}
+			
 			av_interleaved_write_frame(output_ctx, &packet);
+		}
 		
 		av_free_packet(&packet);
 		
