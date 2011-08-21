@@ -17,6 +17,15 @@ extern "C"
 #include <unistd.h>
 
 #include "../justcutit_editor/gldisplay.h"
+#include "../../../../temp/avidemux_2.5.5/avidemux/ADM_coreImage/include/ADM_mmxMacros.h"
+
+#if 0
+#define LOG_DEBUG printf
+#else
+inline void LOG_DEBUG(const char*, ...)
+{
+}
+#endif
 
 struct CutPoint
 {
@@ -84,7 +93,7 @@ bool start_encoder(AVStream* stream)
 		return false;
 	}
 	
-	printf("[ENCODER] Encoder opened.\n");
+	LOG_DEBUG("[ENCODER] Encoder opened.\n");
 	
 	return true;
 }
@@ -117,7 +126,7 @@ bool flush_out_encoder(AVStream* stream, AVFormatContext* ctx, AVPacket* packet,
 		
 		*lastCodedPTS = packet->pts;
 		
-		printf("[ENCODE] Flushing packet out of encoder: %10lld\n", packet->pts);
+		LOG_DEBUG("[ENCODE] Flushing packet out of encoder: %10lld\n", packet->pts);
 		
 		av_interleaved_write_frame(ctx, packet);
 		av_init_packet(packet);
@@ -135,16 +144,19 @@ bool openInputStreams(AVFormatContext* ctx, int* videoIdx)
 		AVStream* stream = ctx->streams[i];
 		
 		// We only need codecs for the video stream
-		if(stream->codec->codec_type != AVMEDIA_TYPE_VIDEO)
+		if(stream->codec->codec_type != AVMEDIA_TYPE_VIDEO && stream->codec->codec_type != AVMEDIA_TYPE_AUDIO)
 			continue;
 		
-		if(*videoIdx != -1)
+		if(stream->codec->codec_type == AVMEDIA_TYPE_VIDEO)
 		{
-			fprintf(stderr, "Fatal: Multiple video streams, this is unhandled at this point\n");
-			return false;
+			if(*videoIdx != -1)
+			{
+				fprintf(stderr, "Fatal: Multiple video streams, this is unhandled at this point\n");
+				return false;
+			}
+			
+			*videoIdx = i;
 		}
-		
-		*videoIdx = i;
 		
 		AVCodec* codec = avcodec_find_decoder(stream->codec->codec_id);
 		if(!codec)
@@ -167,6 +179,28 @@ bool openInputStreams(AVFormatContext* ctx, int* videoIdx)
 	}
 	
 	return true;
+}
+
+AVCodec* outputCodecForInputFrom(AVCodecContext* input)
+{
+	AVCodec* p = av_codec_next(0);
+	for(; p; p = av_codec_next(p))
+	{
+		if(p->id != input->codec_id)
+			continue;
+		
+		if(input->codec_type != AVMEDIA_TYPE_AUDIO)
+			return p;
+		
+		// Have to check sample formats
+		for(int i = 0; p->sample_fmts[i] != -1; ++i)
+		{
+			if(p->sample_fmts[i] == input->sample_fmt)
+				return p;
+		}
+	}
+	
+	return 0;
 }
 
 bool setupOutputStreams(AVFormatContext* input, AVFormatContext* output, StreamMap* map)
@@ -201,7 +235,7 @@ bool setupOutputStreams(AVFormatContext* input, AVFormatContext* output, StreamM
 // 			if(istream->codec->codec_type == AVMEDIA_TYPE_VIDEO)
 // 			{
 				// Get codec
-				AVCodec* codec = avcodec_find_encoder(istream->codec->codec_id);
+				AVCodec* codec = outputCodecForInputFrom(istream->codec);
 				if(!codec)
 				{
 					fprintf(stderr, "Fatal: Could not find codec for encoding stream %d\n",
@@ -334,11 +368,8 @@ int main(int argc, char** argv)
 	
 	state = (cutlist[0].direction == CutPoint::IN) ? ST_SKIPPING : ST_COPY;
 	
-	AVPacket packet;
-	int64_t start_dts;
-	bool first_packet = true;
+	// VIDEO state
 	int keyframePacketCount = 0;
-	int cutlist_idx = 0;
 	AVStream* videoStream = ctx->streams[videoIdx];
 	AVFrame* frame = avcodec_alloc_frame();
 	avpicture_fill(
@@ -355,6 +386,15 @@ int main(int argc, char** argv)
 		videoStream->codec->height
 	);
 	
+	// AUDIO state
+	const int AUDIO_BUFSIZE = 1024 * 1024;
+	int16_t* audio_samples = (int16_t*)av_malloc(AUDIO_BUFSIZE);
+	
+	// Synchronizing & output
+	AVPacket packet;
+	int cutlist_idx = 0;
+	int64_t start_dts;
+	bool first_packet = true;
 	AVPacket output_packet;
 	const int BUFSIZE = 100 * 1024;
 	av_new_packet(&output_packet, BUFSIZE);
@@ -385,15 +425,28 @@ int main(int argc, char** argv)
 		AVStream* istream = ctx->streams[packet.stream_index];
 		AVStream* ostream = output_ctx->streams[it->second];
 		
+		float d = av_q2d(istream->time_base);
+		float time = d * (packet.dts - start_dts);
+		
+		State nextState = state;
+		
+		
+		
 		if(istream->codec->codec_type == AVMEDIA_TYPE_VIDEO)
 		{
-			float d = av_q2d(istream->time_base);
-			
 			int gotFrame;
 			if(avcodec_decode_video2(istream->codec, frame, &gotFrame, &packet) < 0)
 			{
 				fprintf(stderr, "Error while decoding video frame\n");
 				return 1;
+			}
+			
+			CutPoint* nc = 0;
+			
+			if(cutlist_idx < cutlist.size())
+			{
+				nc = &cutlist[cutlist_idx];
+				nextState = (nc->direction == CutPoint::OUT) ? ST_SKIPPING : ST_COPY;
 			}
 			
 			if(first_packet && gotFrame)
@@ -406,18 +459,7 @@ int main(int argc, char** argv)
 			if(gotFrame)
 				display.paintFrame(frame);
 			else
-				printf("packet without frame\n");
-			
-			float time = d * (packet.dts - start_dts);
-			State nextState = state;
-			
-			CutPoint* nc = 0;
-			
-			if(cutlist_idx < cutlist.size())
-			{
-				nc = &cutlist[cutlist_idx];
-				nextState = (nc->direction == CutPoint::OUT) ? ST_SKIPPING : ST_COPY;
-			}
+				LOG_DEBUG("packet without frame\n");
 			
 			if(nc && state != ST_ENCODE && time + 1.0 > nc->time && nextState != state)
 			{
@@ -437,24 +479,24 @@ int main(int argc, char** argv)
 					{
 						if(nextState == ST_SKIPPING) // CUT OUT
 						{
-							printf("% 7.3f: [ENCODE] [CUT_OUT] Now at cutpoint %d, directly breaking...\n", time, cutlist_idx);
+							LOG_DEBUG("% 7.3f: [ENCODE] [CUT_OUT] Now at cutpoint %d, directly breaking...\n", time, cutlist_idx);
 							state = nextState;
 							encoderState = EST_ENCODE_WAIT_FOR_BEGIN;
 							cutoffDTS = packet.dts;
 							flush_out_encoder(ostream, output_ctx, &output_packet, BUFSIZE, &lastCodedPTS);
-							getchar();
+// 							getchar();
 						}
 						else // CUT IN
 						{
-							printf("% 7.3f: [ENCODE] [CUT_IN] Now at cutpoint %d, waiting for next keyframe\n", time, cutlist_idx);
+							LOG_DEBUG("% 7.3f: [ENCODE] [CUT_IN] Now at cutpoint %d, waiting for next keyframe\n", time, cutlist_idx);
 							encoderState = EST_ENCODE_WAIT_FOR_KEYFRAME_PACKET;
 							keyframePacketCount = 5;
 							
-							printf("startDTS = %lld, cutoffDTS = %lld, current DTS = %lld\n", start_dts, cutoffDTS, packet.dts);
+							LOG_DEBUG("startDTS = %lld, cutoffDTS = %lld, current DTS = %lld\n", start_dts, cutoffDTS, packet.dts);
 							totalSkipDTS += packet.dts - cutoffDTS;
-							printf(" => total skip: %lld\n", totalSkipDTS);
+							LOG_DEBUG(" => total skip: %lld\n", totalSkipDTS);
 							cutInPTS = packet.dts;
-							getchar();
+// 							getchar();
 						}
 						
 						cutlist_idx++;
@@ -469,7 +511,7 @@ int main(int argc, char** argv)
 						keyframePacketCount--;
 						if(!keyframePacketCount)
 						{
-							printf("Got keyframe packet with DTS = %lld and PTS = %lld\n", packet.dts, packet.pts);
+							LOG_DEBUG("Got keyframe packet with DTS = %lld and PTS = %lld\n", packet.dts, packet.pts);
 							
 #if 1
 							encoderState = EST_ENCODE_WAIT_FOR_KEYFRAME_FRAME;
@@ -480,7 +522,7 @@ int main(int argc, char** argv)
 							printPackets = 10;
 							
 							flush_out_encoder(ostream, output_ctx, &output_packet, BUFSIZE, &lastCodedPTS);
-							printf("Last coded PTS = %lld\n", lastCodedPTS);
+							LOG_DEBUG("Last coded PTS = %lld\n", lastCodedPTS);
 							getchar();
 #endif
 						}
@@ -490,9 +532,9 @@ int main(int argc, char** argv)
 					{
 						if(frame->key_frame)
 						{
-							printf("% 7.3f: [ENCODE] found keyframe with pts = %lld, pkt_pts = %lld, pkt_dts = %lld, packet->dts = %lld, giving over to copy algorithm\n",
+							LOG_DEBUG("% 7.3f: [ENCODE] found keyframe with pts = %lld, pkt_pts = %lld, pkt_dts = %lld, packet->dts = %lld, giving over to copy algorithm\n",
 								time, frame->pts, frame->pkt_dts, frame->pkt_dts, packet.dts);
-							getchar();
+// 							getchar();
 							
 							encoderState = EST_ENCODE_WAIT_FOR_BEGIN;
 							state = ST_COPY;
@@ -516,13 +558,13 @@ int main(int argc, char** argv)
 								
 								
 								
-								printf("Replaying packet with PTS %lld, key frame: %d\n", packet.pts, packet.flags & AV_PKT_FLAG_KEY);
+								LOG_DEBUG("Replaying packet with PTS %lld, key frame: %d\n", packet.pts, packet.flags & AV_PKT_FLAG_KEY);
 								
 								packet.pts -= totalSkipDTS;
 								
 // 								if(packet.pts >= keyFramePTS)
 // 								{
-									av_pkt_dump2(stdout, &packet, 0, ostream);
+// 									av_pkt_dump2(stdout, &packet, 0, ostream);
 									av_interleaved_write_frame(output_ctx, &packet);
 // 								}
 								av_free_packet(&packet);
@@ -555,9 +597,8 @@ int main(int argc, char** argv)
 						frame->pts = av_rescale_q(frame->pkt_pts - cutInPTS, istream->time_base, ostream->codec->time_base);
 						frame->pict_type = AV_PICTURE_TYPE_NONE; // Let the codec handle picture types
 						
-						printf("[ENCODE] Input PTS: %lld\n", frame->pts);
-						
-						printf("[ENCODE] Encoding, key_frame = %d\n", frame->key_frame);
+						LOG_DEBUG("[ENCODE] Input PTS: %lld\n", frame->pts);
+						LOG_DEBUG("[ENCODE] Encoding, key_frame = %d\n", frame->key_frame);
 						
 						int bytes = avcodec_encode_video(ostream->codec, output_packet.data, BUFSIZE, frame);
 						
@@ -579,13 +620,13 @@ int main(int argc, char** argv)
 							
 							lastCodedPTS = output_packet.pts;
 							
-							av_pkt_dump2(stdout, &output_packet, 0, ostream);
+// 							av_pkt_dump2(stdout, &output_packet, 0, ostream);
 							av_interleaved_write_frame(output_ctx, &output_packet);
 							av_init_packet(&output_packet);
 						}
 					}
 					
-					printf("[ENCODE] Packet stream: pts=%10lld dts=%10lld key=%d | Frame stream: pts=%10lld pict_type=%d | Encoded stream: pts=%10lld, pict_type=%d\n",
+					LOG_DEBUG("[ENCODE] Packet stream: pts=%10lld dts=%10lld key=%d | Frame stream: pts=%10lld pict_type=%d | Encoded stream: pts=%10lld, pict_type=%d\n",
 						packet.pts - totalSkipDTS, packet.dts - totalSkipDTS, packet.flags & AV_PKT_FLAG_KEY,
 						frame->pkt_pts - totalSkipDTS, frame->pict_type,
 						lastCodedPTS, ostream->codec->coded_frame ? ostream->codec->coded_frame->key_frame : 2,
@@ -595,7 +636,74 @@ int main(int argc, char** argv)
 			}
 		}
 		
-		if(state == ST_COPY || (state == ST_ENCODE && encoderState & EST_ENCODE_ENCODING && istream->codec->codec_type != AVMEDIA_TYPE_VIDEO))
+		// audio handling
+		if(istream->codec->codec_type == AVMEDIA_TYPE_AUDIO && state == ST_ENCODE)
+		{
+			time = d * (packet.pts - start_dts);
+			
+			CutPoint* nc = 0;
+			
+			if(cutlist_idx < cutlist.size())
+			{
+				nc = &cutlist[cutlist_idx];
+				nextState = (nc->direction == CutPoint::OUT) ? ST_SKIPPING : ST_COPY;
+			}
+			
+			int64_t start = packet.pts;
+			int64_t end = packet.pts + packet.duration;
+			
+			int frame_size = AUDIO_BUFSIZE;
+			if(avcodec_decode_audio3(istream->codec, audio_samples, &frame_size, &packet) < 0)
+			{
+				fprintf(stderr, "Fatal: Could not decode audio\n");
+				return 1;
+			}
+			
+			// Start encoder if necessary
+			if(!ostream->codec->codec)
+			{
+				AVCodec* codec = (AVCodec*)ostream->codec->opaque;
+				if(avcodec_open2(ostream->codec, codec, 0) != 0)
+				{
+					fprintf(stderr, "Fatal: Could not open audio codec for stream %d\n",
+						ostream->index
+					);
+					return 1;
+				}
+				
+				LOG_DEBUG("[AUDIO ] Started audio encoder for output stream %d\n", ostream->index);
+			}
+			
+			if(nc && nc->direction == CutPoint::IN)
+			{
+				// Detect packets across the cut
+				if(end - start_dts > nc->time / d)
+				{
+					printf("Got a packet across the cut!\n");
+					return 0;
+				}
+			}
+			
+			if(nc && nc->direction == CutPoint::OUT && end - start_dts < nc->time / d)
+			{
+				LOG_DEBUG("[AUDIO ] Audio packet for stream %d: dts=%10lld, pts=%10lld, duration=%d\n",
+					ostream->index, packet.dts, packet.pts, packet.duration
+				);
+				
+				packet.stream_index = ostream->index;
+				packet.dts = AV_NOPTS_VALUE;
+				packet.pts -= totalSkipDTS;
+				av_interleaved_write_frame(output_ctx, &packet);
+			}
+			else if(nc && nc->direction == CutPoint::OUT)
+			{
+				LOG_DEBUG("[AUDIO ] Skipping because %lld < %f\n",
+					   end - start_dts, nc->time / d
+				);
+			}
+		}
+		
+		if(state == ST_COPY)
 		{
 			packet.stream_index = it->second;
 			packet.dts = AV_NOPTS_VALUE;
@@ -603,9 +711,14 @@ int main(int argc, char** argv)
 			
 			if(printPackets > 0)
 			{
-				printf("[ COPY ] Writing packet with PTS %lld\n", packet.pts);
+				LOG_DEBUG("[ COPY ] Writing packet with PTS %lld\n", packet.pts);
 				av_pkt_dump2(stdout, &packet, 0, ostream);
 				printPackets--;
+			}
+			
+			if(istream->codec->codec_type == AVMEDIA_TYPE_AUDIO)
+			{
+				
 			}
 			
 			av_interleaved_write_frame(output_ctx, &packet);
