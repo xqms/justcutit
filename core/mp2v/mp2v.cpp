@@ -12,34 +12,16 @@ extern "C"
 #include <libavformat/avformat.h>
 }
 
-const int OUTPUT_BUFFER_SIZE = 10 * 1024 * 1024;
-
 // Debug - log packet information near cutpoints
 #define DEBUG 0
 
 // Debug - dump packets during cut-in to pwd
 #define DUMP_CUTIN_PACKETS 0
 
-#if DEBUG
-static void log_debug(const char* msg, ...)
-	__attribute__((format (printf, 1, 2)));
+#define LOG_PREFIX "[MP2V]"
+#include "../log.h"
 
-static void log_debug(const char* msg, ...)
-{
-	va_list l;
-	va_start(l, msg);
-	
-	fputs("[MP2V] ", stderr);
-	vfprintf(stderr, msg, l);
-	fputc('\n', stderr);
-	
-	va_end(l);
-}
-#else
-inline void log_debug(const char* msg, ...)
-{
-}
-#endif
+const int OUTPUT_BUFFER_SIZE = 10 * 1024 * 1024;
 
 #if DUMP_CUTIN_PACKETS
 static void dump_cutin_packet(const char* ext, int64_t pts, AVPacket* packet)
@@ -56,24 +38,6 @@ inline void dump_cutin_packet(const char* ext, int64_t pts, AVPacket* packet)
 {
 }
 #endif
-
-
-inline int error(const char* msg, ...)
-	__attribute__((format (printf, 1, 2)));
-
-inline int error(const char* msg, ...)
-{
-	va_list l;
-	va_start(l, msg);
-	
-	fputs("[MP2V] Error: ", stderr);
-	vfprintf(stderr, msg, l);
-	fputc('\n', stderr);
-	
-	va_end(l);
-	
-	return -1;
-}
 
 static AVPacket copyPacket(const AVPacket& input)
 {
