@@ -6,6 +6,9 @@ find_library(GLEW_LIBRARY GLEW PATHS /usr/lib DOC "glew library" REQUIRED)
 
 add_executable(justcutit
 	main.cpp
+	cutlist.cpp
+	streamhandler.cpp
+	mp2v/mp2v.cpp
 	../justcutit_editor/gldisplay.cpp
 )
 
