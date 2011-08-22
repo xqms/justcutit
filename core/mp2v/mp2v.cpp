@@ -14,7 +14,11 @@ extern "C"
 
 const int OUTPUT_BUFFER_SIZE = 10 * 1024 * 1024;
 
-#define DEBUG 1
+// Debug - log packet information near cutpoints
+#define DEBUG 0
+
+// Debug - dump packets during cut-in to pwd
+#define DUMP_CUTIN_PACKETS 0
 
 #if DEBUG
 static void log_debug(const char* msg, ...)
@@ -36,8 +40,6 @@ inline void log_debug(const char* msg, ...)
 {
 }
 #endif
-
-#define DUMP_CUTIN_PACKETS 1
 
 #if DUMP_CUTIN_PACKETS
 static void dump_cutin_packet(const char* ext, int64_t pts, AVPacket* packet)
