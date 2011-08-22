@@ -16,6 +16,7 @@ CreatorMap* g_creatorMap;
 StreamHandler::StreamHandler(AVStream* stream)
  : m_stream(stream)
  , m_totalCutout(0)
+ , m_active(true)
 {
 }
 
@@ -41,6 +42,11 @@ void StreamHandler::setOutputStream(AVStream* outputStream)
 void StreamHandler::setTotalCutout(int64_t duration)
 {
 	m_totalCutout = duration;
+}
+
+void StreamHandler::setActive(bool active)
+{
+	m_active = active;
 }
 
 int StreamHandler::writeInputPacket(AVPacket* packet)
