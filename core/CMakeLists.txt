@@ -9,6 +9,7 @@ add_executable(justcutit
 	cutlist.cpp
 	streamhandler.cpp
 	mp2v/mp2v.cpp
+	audio/ac3.cpp
 	../justcutit_editor/gldisplay.cpp
 )
 
