@@ -4,15 +4,12 @@
 #include "mp2v.h"
 
 #include <stdarg.h>
+#include <unistd.h>
 
 extern "C"
 {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <unistd.h>
-
-// From libavcodec/mpegvideo.c
-extern const uint8_t* ff_find_start_code(const uint8_t* p, const uint8_t* end, uint32_t* state);
 }
 
 const int OUTPUT_BUFFER_SIZE = 10 * 1024 * 1024;
