@@ -130,7 +130,7 @@ int MP2V::handlePacket(AVPacket* packet)
 		
 		if(m_nc && m_nc->time - m_startDecodeOffset < time && packet->flags & AV_PKT_FLAG_KEY)
 		{
-			printf("[MP2V] NOTE:  %'10lld, switching to decoder for %s\n",
+			log_debug("NOTE:  %'10lld, switching to decoder for %s",
 				packet->dts - totalCutout(),
 				(m_nc->direction == CutPoint::IN) ? "CUT_IN" : "CUT_OUT"
 			);
