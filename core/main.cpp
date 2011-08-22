@@ -219,6 +219,16 @@ int main(int argc, char** argv)
 			return 1;
 		
 		av_free_packet(&packet);
+		
+		bool allFinished = true;
+		for(StreamMap::const_iterator it = stream_mapping.begin();
+			it != stream_mapping.end(); ++it)
+		{
+			if(it->second->active())
+				allFinished = false;
+		}
+		if(allFinished)
+			break;
 	}
 	
 	av_write_trailer(output_ctx);

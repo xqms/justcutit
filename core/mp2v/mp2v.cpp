@@ -175,6 +175,8 @@ int MP2V::handlePacket(AVPacket* packet)
 				
 				if(m_nc)
 					setTotalCutout(m_nc->time - (packet->dts - totalCutout()));
+				else
+					setActive(false); // last cutpoint reached
 				
 				avcodec_flush_buffers(stream()->codec);
 				
