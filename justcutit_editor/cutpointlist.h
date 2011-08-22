@@ -13,9 +13,12 @@ extern "C"
 struct AVFrame;
 }
 
+#include <stdint.h>
+
 struct CutPoint
 {
 	float time;
+	int64_t pts;
 	enum Direction {
 		CUT_IN,
 		CUT_OUT
@@ -24,7 +27,7 @@ struct CutPoint
 	
 	inline bool operator<(const CutPoint& rhs) const
 	{
-		return time < rhs.time;
+		return pts < rhs.pts;
 	}
 };
 
@@ -33,7 +36,7 @@ class CutPointList : public QObject
 	Q_OBJECT
 	public:
 		int addCutPoint(const CutPoint& point);
-		int addCutPoint(float time, CutPoint::Direction dir, AVFrame* img);
+		int addCutPoint(float time, CutPoint::Direction dir, AVFrame* img, int64_t pts);
 		
 		int nextCutPoint(float time);
 		int lastCutPoint(float time);

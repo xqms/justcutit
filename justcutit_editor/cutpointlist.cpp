@@ -16,12 +16,13 @@ int CutPointList::addCutPoint(const CutPoint& point)
 	return idx;
 }
 
-int CutPointList::addCutPoint(float time, CutPoint::Direction dir, AVFrame* img)
+int CutPointList::addCutPoint(float time, CutPoint::Direction dir, AVFrame* img, int64_t pts)
 {
 	CutPoint point;
 	point.time = time;
 	point.direction = dir;
 	point.img = img;
+	point.pts = pts;
 	
 	return addCutPoint(point);
 }
@@ -80,7 +81,7 @@ void CutPointList::writeTo(QIODevice* device) const
 
 QTextStream& operator<<(QTextStream& stream, const CutPoint& point)
 {
-	stream << point.time
+	stream << point.pts
 	       << " "
 	       << ((point.direction == CutPoint::CUT_IN) ? "IN" : "OUT");
 	return stream;
@@ -90,7 +91,7 @@ QTextStream& operator>>(QTextStream& stream, CutPoint& point)
 {
 	QString inout;
 	
-	stream >> point.time >> inout;
+	stream >> point.pts >> inout;
 	
 	if(inout == "IN")
 		point.direction = CutPoint::CUT_IN;

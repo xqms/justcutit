@@ -61,6 +61,7 @@ class Editor : public QWidget
 		int m_headFrame;
 		int m_timeStampStart;
 		float m_videoTimeBase;
+		AVRational m_videoTimeBase_q;
 		bool m_fullBuffer;
 		
 		CutPointList m_cutPoints;

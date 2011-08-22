@@ -36,6 +36,8 @@ Editor::Editor(QWidget* parent)
 	connect(m_ui->nextSecondButton, SIGNAL(clicked()), SLOT(seek_plus1Second()));
 	connect(m_ui->next30SecButton, SIGNAL(clicked()), SLOT(seek_plus30Sec()));
 	connect(m_ui->prevButton, SIGNAL(clicked()), SLOT(seek_prevFrame()));
+	connect(m_ui->prevSecondButton, SIGNAL(clicked()), SLOT(seek_minus1Second()));
+	connect(m_ui->prev30SecButton, SIGNAL(clicked()), SLOT(seek_minus30Sec()));
 	
 	connect(m_ui->timeSlider, SIGNAL(sliderMoved(int)), SLOT(seek_slider(int)));
 	
@@ -67,7 +69,8 @@ Editor::~Editor()
 
 void Editor::loadFile()
 {
-	const char *filename = "/home/max/Downloads/Ben Hur.ts";
+// 	const char *filename = "/home/max/Downloads/Ben Hur.ts";
+	const char *filename = "test.ts";
 // 	const char *filename = "http://192.168.178.48:49152/content/internal-recordings/0/record/3144/recording.ts";
 	
 // 	m_stream = avformat_alloc_context();
@@ -121,14 +124,13 @@ void Editor::loadFile()
 		return;
 	}
 	
-	readFrame(true);
-	
-	m_timeStampStart = m_frameTimestamps[0];
-	
 	initBuffer();
 	resetBuffer();
 	
-	m_videoTimeBase = av_q2d(m_stream->streams[m_videoID]->time_base);
+	m_timeStampStart = m_frameTimestamps[0];
+	
+	m_videoTimeBase_q = m_stream->streams[m_videoID]->time_base;
+	m_videoTimeBase = av_q2d(m_videoTimeBase_q);
 	
 	printf("File duration is % 5.2fs\n", (float)m_stream->duration / AV_TIME_BASE);
 	m_ui->timeSlider->setMaximum(m_stream->duration / AV_TIME_BASE);
@@ -140,6 +142,8 @@ void Editor::loadFile()
 	m_ui->cutVideoWidget->setSize(w, h);
 	
 	displayCurrentFrame();
+	
+	av_log_set_level(AV_LOG_DEBUG);
 }
 
 void Editor::readFrame(bool needKeyFrame)
@@ -148,10 +152,14 @@ void Editor::readFrame(bool needKeyFrame)
 	AVFrame frame;
 	int frameFinished;
 	
+	printf("Editor::readFrame(): has_b_frames = %d\n", m_videoCodecCtx->has_b_frames);
+	
 	while(av_read_frame(m_stream, &packet) == 0)
 	{
 		if(packet.stream_index != m_videoID)
 			continue;
+		
+		fprintf(stderr, "keyframe=%d, dts=%10lld, pts=%10lld\n", packet.flags, packet.dts, packet.pts);
 		
 		if(avcodec_decode_video2(m_videoCodecCtx, &frame, &frameFinished, &packet) < 0)
 		{
@@ -160,7 +168,10 @@ void Editor::readFrame(bool needKeyFrame)
 		}
 		
 		if(!frameFinished)
+		{
+			fprintf(stderr, "Got no frame :-(\n");
 			continue;
+		}
 		
 		if(m_videoCodecCtx->pix_fmt != PIX_FMT_YUV420P)
 		{
@@ -197,6 +208,7 @@ void Editor::displayCurrentFrame()
 	
 	m_ui->frameTypeLabel->setText(QString::number(m_frameBuffer[m_frameIdx]->pict_type));
 	m_ui->timeStampLabel->setText(QString("%1s").arg(frameTime(m_frameIdx), 7, 'f', 4));
+	m_ui->rawPTSLabel->setText(QString("%1").arg(m_frameTimestamps[m_frameIdx]));
 	m_ui->headIdxLabel->setText(QString::number(m_headFrame));
 	m_ui->frameIdxLabel->setText(QString::number(m_frameIdx));
 	
@@ -242,9 +254,9 @@ float Editor::frameTime(int idx)
 
 void Editor::seek_time(float seconds, bool display)
 {
-	int ts = m_timeStampStart + seconds / m_videoTimeBase;
-	int min_ts = ts - 2.0 / m_videoTimeBase;
-	int max_ts = ts;
+	int64_t ts = m_timeStampStart + seconds / m_videoTimeBase;
+	int64_t min_ts = ts - 2.0 / m_videoTimeBase;
+	int64_t max_ts = ts;
 	
 	avcodec_flush_buffers(m_videoCodecCtx);
 	
@@ -262,7 +274,7 @@ void Editor::seek_time(float seconds, bool display)
 
 void Editor::seek_timeExact(float seconds, bool display)
 {
-	for(int i = 0; i == 0 || frameTime() >= seconds; ++i)
+	for(int i = 0; i == 0 || frameTime() >= seconds - 0.5; ++i)
 		seek_time(seconds - 1.0 * i, false);
 	
 	if(seconds - frameTime() > 5.0)
@@ -387,7 +399,13 @@ void Editor::cut_cut(CutPoint::Direction dir)
 		w, h
 	);
 	
-	int num = m_cutPoints.addCutPoint(frameTime(), dir, frame);
+	int64_t pts = av_rescale_q(
+		m_frameTimestamps[m_frameIdx],
+		m_videoTimeBase_q,
+		AV_TIME_BASE_Q
+	);
+	
+	int num = m_cutPoints.addCutPoint(frameTime(), dir, frame, pts);
 	QModelIndex idx = m_cutPointModel.idxForNum(num);
 	m_ui->cutPointView->setCurrentIndex(idx);
 	cut_pointActivated(idx);
@@ -449,6 +467,15 @@ void Editor::cut_openList()
 	for(int i = 0; i < m_cutPoints.count(); ++i)
 	{
 		CutPoint& p = m_cutPoints.at(i);
+		
+		int64_t stream_pts = av_rescale_q(
+			p.pts,
+			AV_TIME_BASE_Q,
+			m_videoTimeBase_q
+		);
+		p.time = m_videoTimeBase * (stream_pts - m_timeStampStart);
+		
+		printf("CutPoint %d has stream PTS %10lld\n", i, stream_pts);
 		
 		seek_timeExact(p.time, false);
 		
