@@ -79,4 +79,20 @@ QModelIndex CutPointModel::idxForNum(int num)
 	return index(num);
 }
 
+int CutPointModel::numForIdx(const QModelIndex& idx)
+{
+	return idx.row();
+}
+
+bool CutPointModel::removeRows(int row, int count, const QModelIndex& parent)
+{
+	beginRemoveRows(parent, row, row+count-1);
+	
+	for(; count > 0; --count)
+		m_list->remove(row);
+	
+	endRemoveRows();
+}
+
+
 #include "cutpointmodel.moc"

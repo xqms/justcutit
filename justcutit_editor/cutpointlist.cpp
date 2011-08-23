@@ -43,6 +43,11 @@ int CutPointList::nextCutPoint(float time)
 	return qLowerBound(m_list, dummy) - m_list.begin();
 }
 
+void CutPointList::remove(int idx)
+{
+	m_list.removeAt(idx);
+}
+
 // SERIALIZING
 
 bool CutPointList::readFrom(QIODevice* device)

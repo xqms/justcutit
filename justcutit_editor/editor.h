@@ -44,6 +44,7 @@ class Editor : public QWidget
 		void cut_cutOutHere();
 		void cut_cutInHere();
 		void cut_pointActivated(QModelIndex idx);
+		void cut_deletePoint();
 		void cut_openList();
 		void cut_saveList();
 	private:

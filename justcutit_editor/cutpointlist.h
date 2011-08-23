@@ -41,6 +41,8 @@ class CutPointList : public QObject
 		int nextCutPoint(float time);
 		int lastCutPoint(float time);
 		
+		void remove(int idx);
+		
 		inline const CutPoint& operator[](int idx) const
 		{ return m_list[idx]; }
 		

@@ -57,6 +57,7 @@ Editor::Editor(QWidget* parent)
 	
 	connect(m_ui->cutlistOpenButton, SIGNAL(clicked()), SLOT(cut_openList()));
 	connect(m_ui->cutlistSaveButton, SIGNAL(clicked()), SLOT(cut_saveList()));
+	connect(m_ui->cutlistDelItemButton, SIGNAL(clicked()), SLOT(cut_deletePoint()));
 	
 	m_ui->timeSlider->setList(&m_cutPoints);
 }
@@ -156,10 +157,12 @@ void Editor::readFrame(bool needKeyFrame)
 	
 	while(av_read_frame(m_stream, &packet) == 0)
 	{
+		fprintf(stderr, "audio=%d, dts=%10lld, pts=%10lld\n",
+			m_stream->streams[packet.stream_index]->codec->codec_type == AVMEDIA_TYPE_AUDIO,
+			packet.dts, packet.pts);
+		
 		if(packet.stream_index != m_videoID)
 			continue;
-		
-		fprintf(stderr, "keyframe=%d, dts=%10lld, pts=%10lld\n", packet.flags, packet.dts, packet.pts);
 		
 		if(avcodec_decode_video2(m_videoCodecCtx, &frame, &frameFinished, &packet) < 0)
 		{
@@ -528,6 +531,15 @@ void Editor::cut_saveList()
 	m_cutPoints.writeTo(&file);
 	
 	file.close();
+}
+
+void Editor::cut_deletePoint()
+{
+	QModelIndex idx = m_ui->cutPointView->currentIndex();
+	if(!idx.isValid())
+		return;
+	
+	m_cutPointModel.removeRow(idx.row());
 }
 
 #include "editor.moc"
