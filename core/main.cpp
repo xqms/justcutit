@@ -137,6 +137,8 @@ int main(int argc, char** argv)
 	AVFormatContext* output_ctx = 0;
 	CutPointList cutlist;
 	StreamMap stream_mapping;
+	int64_t duration;
+	int last_percent_done = 0;
 	
 	if(argc != 4)
 	{
@@ -159,6 +161,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 	
+	printf(" [+] Input file duration: %.2f\n", (float)ctx->duration / AV_TIME_BASE);
 	av_dump_format(ctx, 0, argv[1], false);
 	
 	printf("Reading cutlist\n");
@@ -214,6 +217,15 @@ int main(int argc, char** argv)
 		StreamMap::iterator it = stream_mapping.find(packet.stream_index);
 		if(it == stream_mapping.end())
 			continue;
+		
+		AVStream* stream = ctx->streams[packet.stream_index];
+		int percent = av_rescale(packet.dts - stream->start_time, 100, stream->duration);
+		
+		if(percent / 10 != last_percent_done / 10 && percent > last_percent_done)
+		{
+			printf("%02d%% done (approximation)\n", percent);
+			last_percent_done = percent;
+		}
 		
 		if(it->second->handlePacket(&packet) != 0)
 			return 1;
