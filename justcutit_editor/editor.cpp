@@ -70,15 +70,23 @@ Editor::~Editor()
 
 void Editor::loadFile()
 {
-// 	const char *filename = "/home/max/Downloads/Ben Hur.ts";
-	const char *filename = "test.ts";
-// 	const char *filename = "http://192.168.178.48:49152/content/internal-recordings/0/record/3144/recording.ts";
+	QString filename = QFileDialog::getOpenFileName(
+		this,
+		"Open file",       // caption
+		QString(),         // dir
+		"TS files (*.ts)"  // filter
+	);
+	if(filename.isNull())
+	{
+		QApplication::exit(1);
+		return;
+	}
 	
 // 	m_stream = avformat_alloc_context();
 // 	m_stream->pb = io_http_create(filename);
 	m_stream = 0;
 	
-	if(avformat_open_input(&m_stream, filename, NULL, NULL) != 0)
+	if(avformat_open_input(&m_stream, filename.toAscii().constData(), NULL, NULL) != 0)
 	{
 		fprintf(stderr, "Fatal: Could not open input stream\n");
 		
