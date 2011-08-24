@@ -153,14 +153,8 @@ void Editor::readFrame(bool needKeyFrame)
 	AVFrame frame;
 	int frameFinished;
 	
-	printf("Editor::readFrame(): has_b_frames = %d\n", m_videoCodecCtx->has_b_frames);
-	
 	while(av_read_frame(m_stream, &packet) == 0)
 	{
-		fprintf(stderr, "audio=%d, dts=%10lld, pts=%10lld\n",
-			m_stream->streams[packet.stream_index]->codec->codec_type == AVMEDIA_TYPE_AUDIO,
-			packet.dts, packet.pts);
-		
 		if(packet.stream_index != m_videoID)
 			continue;
 		
@@ -171,10 +165,7 @@ void Editor::readFrame(bool needKeyFrame)
 		}
 		
 		if(!frameFinished)
-		{
-			fprintf(stderr, "Got no frame :-(\n");
 			continue;
-		}
 		
 		if(m_videoCodecCtx->pix_fmt != PIX_FMT_YUV420P)
 		{
