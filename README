@@ -1,0 +1,35 @@
+justcutit - frame-precision MPEG TS cutter
+==========================================
+
+justcutit consists of two applications:
+ - justcutit_editor: Provides a Qt4-based GUI to inspect
+   MPEG TS files and generate a cutlist file
+ - justcutit (located in core/): Performs the actual work
+
+The cutting is performed through re-encoding the parts
+around the cutpoints (just a few GOPs). Everything else is just
+copied with modified timestamps as required.
+
+Supported stream types/codecs:
+ - MPEG-2 video
+ - AC3 audio
+ - more to come: H.264, MP2 audio, etc
+
+ffmpeg's libavformat/libavcodec are used for demuxing & decoding.
+
+Running the editor & cutter
+==========================================
+
+The editor currently needs its OpenGL shader source code
+in its directory. If you're doing an out-of-source build
+please symlink all *.glsl files.
+
+TODO/known limitations:
+==========================================
+ - The editor uses OpenGL acceleration to display YUV420 images.
+   Other image formats or systems without OpenGL are not supported.
+ - Everything should run on Windows, but the cmake files need some
+   work.
+ - Had limited sample files to play with. SD quality recordings from
+   an Kathrein UFS-910 work fine here.
+ - Could support more output formats than MPEG-TS
