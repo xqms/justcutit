@@ -60,7 +60,7 @@ class Editor : public QWidget
 		int64_t m_frameTimestamps[NUM_FRAMES];
 		int m_frameIdx;
 		int m_headFrame;
-		int m_timeStampStart;
+		int64_t m_timeStampStart;
 		float m_videoTimeBase;
 		AVRational m_videoTimeBase_q;
 		bool m_fullBuffer;
