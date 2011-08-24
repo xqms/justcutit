@@ -46,6 +46,7 @@ int CutPointList::nextCutPoint(float time)
 void CutPointList::remove(int idx)
 {
 	m_list.removeAt(idx);
+	emit removed(idx);
 }
 
 // SERIALIZING

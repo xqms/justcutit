@@ -62,6 +62,7 @@ class CutPointList : public QObject
 	signals:
 		void aboutToInsert(int idx);
 		void inserted(int idx);
+		void removed(int idx);
 		void reset();
 	private:
 		QList<CutPoint> m_list;

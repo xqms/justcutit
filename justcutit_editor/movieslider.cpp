@@ -21,6 +21,9 @@ MovieSlider::~MovieSlider()
 void MovieSlider::setList(CutPointList* list)
 {
 	m_list = list;
+	connect(list, SIGNAL(inserted(int)), SLOT(update()));
+	connect(list, SIGNAL(reset()), SLOT(update()));
+	connect(list, SIGNAL(removed(int)), SLOT(update()));
 }
 
 void MovieSlider::paintRange(float begin, float end, QPainter* painter, const QBrush& brush, QStyleOptionSlider* option)
