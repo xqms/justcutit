@@ -277,13 +277,6 @@
        <layout class="QVBoxLayout" name="verticalLayout">
         <item>
          <layout class="QGridLayout" name="gridLayout_3">
-          <item row="0" column="0">
-           <widget class="QPushButton" name="cutOutButton">
-            <property name="text">
-             <string>Last frame before</string>
-            </property>
-           </widget>
-          </item>
           <item row="0" column="1" rowspan="2">
            <widget class="QLabel" name="label_8">
             <property name="text">
@@ -291,10 +284,31 @@
             </property>
            </widget>
           </item>
+          <item row="0" column="0">
+           <widget class="QToolButton" name="cutOutButton">
+            <property name="text">
+             <string>Last frame before</string>
+            </property>
+            <property name="icon">
+             <iconset>
+              <normaloff>icons/cut-out.png</normaloff>icons/cut-out.png</iconset>
+            </property>
+            <property name="toolButtonStyle">
+             <enum>Qt::ToolButtonTextBesideIcon</enum>
+            </property>
+           </widget>
+          </item>
           <item row="1" column="0">
-           <widget class="QPushButton" name="cutInButton">
+           <widget class="QToolButton" name="cutInButton">
             <property name="text">
              <string>First frame after</string>
+            </property>
+            <property name="icon">
+             <iconset>
+              <normaloff>icons/cut-in.png</normaloff>icons/cut-in.png</iconset>
+            </property>
+            <property name="toolButtonStyle">
+             <enum>Qt::ToolButtonTextBesideIcon</enum>
             </property>
            </widget>
           </item>

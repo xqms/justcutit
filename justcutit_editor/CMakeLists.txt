@@ -38,3 +38,5 @@ target_link_libraries(justcutit_editor
 	${GLEW_LIBRARY}
 	${BZIP2_LIBRARIES}
 )
+
+add_subdirectory(icons)
