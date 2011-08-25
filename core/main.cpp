@@ -7,9 +7,6 @@ extern "C"
 #include <libavformat/avformat.h>
 }
 
-#include <QtGui/QApplication>
-#include <QtGui/QBoxLayout>
-
 #include <stdio.h>
 #include <vector>
 #include <map>
@@ -208,8 +205,6 @@ int main(int argc, char** argv)
 	
 	
 	avformat_write_header(output_ctx, 0);
-	
-	QApplication app(argc, argv);
 	
 	AVPacket packet;
 	while(av_read_frame(ctx, &packet) == 0)
