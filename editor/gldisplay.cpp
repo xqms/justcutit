@@ -115,7 +115,10 @@ QSize GLDisplay::sizeHint() const
 void GLDisplay::paintGL()
 {
 	if(!m_frame)
+	{
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		return;
+	}
 	
 	GLfloat points[] = {
 		0.0, 0.0,
