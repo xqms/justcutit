@@ -6,6 +6,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <errno.h>
 
 #ifndef LOG_PREFIX
 #error LOG_PREFIX not set!
@@ -26,9 +27,34 @@ static void log_debug(const char* msg, ...)
 	
 	va_end(l);
 }
+
+static int log_debug_perror(const char* msg, ...)
+	__attribute__((format (printf, 1, 2)));
+
+static int log_debug_perror(const char* msg, ...)
+{
+	va_list l;
+	va_start(l, msg);
+	
+	int error = errno;
+	
+	fputs(LOG_PREFIX " ", stderr);
+	vfprintf(stderr, msg, l);
+	fputs(": ", stderr);
+	fputs(strerror(error), stderr);
+	fputc('\n', stderr);
+	
+	va_end(l);
+	
+	return -1;
+}
 #else
 inline void log_debug(const char* msg, ...)
 {
+}
+inline int log_debug_perror(const char* msg, ...)
+{
+	return -1;
 }
 #endif
 
