@@ -3,7 +3,7 @@
 
 // SHADER 1: Vertex shader, calculates the current position
 
-// PARAMTERS
+// output to fragment shader
 varying vec2 v_texcoord;
 
 void main()

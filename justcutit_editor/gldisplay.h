@@ -12,6 +12,12 @@ extern "C"
 #include <libavcodec/avcodec.h>
 }
 
+/**
+ * @brief OpenGL video display widget
+ * 
+ * Displays an AVFrame using OpenGL methods.
+ * YUV420 conversion is accelerated using OpenGL shaders.
+ * */
 class GLDisplay : public QGLWidget
 {
 	Q_OBJECT
@@ -26,8 +32,23 @@ class GLDisplay : public QGLWidget
 		
 		virtual QSize sizeHint() const;
 		
+		//! @name Public API
+		//@{
+		
+		/**
+		 * Set the picture size.
+		 * 
+		 * @warning This @b must be called before the first
+		 * call of paintFrame()!
+		 * */
 		void setSize(int w, int h);
+		
+		/**
+		 * Paint a frame. This does an @b immediate repaint() to
+		 * provide fast response.
+		 * */
 		void paintFrame(AVFrame* frame);
+		//@}
 	private:
 		AVFrame* m_frame;
 		int m_w;

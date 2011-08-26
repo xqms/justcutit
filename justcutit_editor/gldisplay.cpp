@@ -80,6 +80,10 @@ void GLDisplay::paintFrame(AVFrame* frame)
 	
 	makeCurrent();
 	
+	// YUV420 to RGB conversion is done on the GPU using
+	// a fragment shader. We just have to extract the
+	// Y, U, V images from the YUV420 input.
+	
 	for(int i = 0; i < 3; ++i)
 	{
 		glActiveTexture(GL_TEXTURE0 + i);
@@ -122,14 +126,19 @@ void GLDisplay::paintGL()
 	
 	GLfloat texcoords[] = {
 		0.0, 1.0,
+		
+		// frame may be bigger than image width
 		(float)m_w / m_frame->linesize[0], 1.0,
 		(float)m_w / m_frame->linesize[0], 0.0,
+		
 		0.0, 0.0
 	};
 	
+	// Set plane coordinates
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glVertexPointer(2, GL_FLOAT, 0, points);
 	
+	// Set texture coordinates
 	for(int i = 0; i < 3; ++i)
 	{
 		glClientActiveTexture(GL_TEXTURE0 + i);
