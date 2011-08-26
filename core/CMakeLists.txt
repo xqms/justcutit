@@ -14,6 +14,8 @@ target_link_libraries(justcutit
 	${AVCODEC_LIBRARY}
 	${AVUTIL_LIBRARY}
 	${CMAKE_THREAD_LIBS_INIT}
+	${BZIP2_LIBRARIES}
+	${ZLIB_LIBRARIES}
 )
 
 if(WIN32)
