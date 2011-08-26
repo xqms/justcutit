@@ -305,7 +305,8 @@ void Editor::seek_timeExact(float seconds, bool display)
 	
 	if(seconds - frameTime() > 5.0)
 	{
-		printf("WARNING: Big gap: dest is %f, frameTime is %f\n", seconds, frameTime());
+		fprintf(stderr, "WARNING: Big gap: dest is %f, frameTime is %f\n",
+			seconds, frameTime());
 	}
 	
 	while(frameTime() < seconds - 0.002)
@@ -394,11 +395,7 @@ void Editor::seek_slider(int value)
 {
 	float time = value;
 	
-	printf("seeking to % 3.3f\n", time);
-	
 	seek_time(time);
-	
-	printf(" => % 3.3f\n", frameTime());
 }
 
 void Editor::cut_cut(CutPoint::Direction dir)
