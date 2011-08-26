@@ -15,3 +15,7 @@ target_link_libraries(justcutit
 	${AVUTIL_LIBRARY}
 	${CMAKE_THREAD_LIBS_INIT}
 )
+
+if(WIN32)
+	target_link_libraries(justcutit wsock32.lib ws2_32.lib)
+endif()
