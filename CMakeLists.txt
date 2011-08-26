@@ -17,5 +17,5 @@ include_directories(${FFMPEG_INCLUDE})
 
 add_definitions(-D__STDC_CONSTANT_MACROS)
 
-add_subdirectory(justcutit_editor)
+add_subdirectory(editor)
 add_subdirectory(core)
