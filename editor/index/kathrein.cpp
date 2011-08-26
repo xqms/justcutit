@@ -75,7 +75,7 @@ bool KathreinIndexFile::detect(AVFormatContext*,
 
 bool KathreinIndexFile::open(const char* filename, const char* stream_filename)
 {
-	char* my_filename;
+	char* my_filename = 0;
 	if(!filename)
 		filename = my_filename = fabricateFilename(stream_filename);
 	
@@ -102,11 +102,19 @@ bool KathreinIndexFile::open(const char* filename, const char* stream_filename)
 		return false;
 	}
 	
+	if(fseek(f, 0x2f44, SEEK_SET) != 0)
+	{
+		log_debug_perror("Could not seek");
+		return false;
+	}
+	
 	if(fread((void*)m_table, sizeof(TableEntry), m_count, f) != m_count)
 	{
 		log_debug_perror("Could not read table");
 		return false;
 	}
+	
+	log_debug("Index file opened");
 	
 	return true;
 }
