@@ -73,12 +73,15 @@ bool KathreinIndexFile::detect(AVFormatContext*,
 	return ret;
 }
 
-bool KathreinIndexFile::open(const char* stream_filename)
+bool KathreinIndexFile::open(const char* filename, const char* stream_filename)
 {
-	char* filename = fabricateFilename(stream_filename);
+	char* my_filename;
+	if(!filename)
+		filename = my_filename = fabricateFilename(stream_filename);
 	
 	FILE* f = fopen(filename, "rb");
-	free(filename);
+	
+	free(my_filename);
 	
 	if(!f)
 		return false;
@@ -139,4 +142,4 @@ loff_t KathreinIndexFile::bytePositionForPTS(int64_t pts)
 	return m_table[cmp].offset;
 }
 
-REGISTER_INDEX_FILE(KathreinIndexFile)
+REGISTER_INDEX_FILE("kathrein", KathreinIndexFile)

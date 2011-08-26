@@ -37,8 +37,12 @@ class IndexFile
 		
 		/**
 		 * @brief Open index file for stream
+		 * 
+		 * @param filename Index file filename (may be NULL)
+		 * @param stream_filename Filename of stream (may be NULL)
 		 * */
-		virtual bool open(const char* stream_filename) = 0;
+		virtual bool open(const char* filename,
+			const char* stream_filename) = 0;
 		
 		/**
 		 * Determine byte position of frame with specified PTS timestamp.
@@ -62,7 +66,12 @@ class IndexFileFactory
 {
 	public:
 		IndexFile* detectIndexFile(
-			AVFormatContext* input, const char* filename
+			AVFormatContext* input, const char* stream_filename
+		);
+		
+		IndexFile* openWith(
+			const char* format_name, const char* filename,
+			AVFormatContext* input, const char* stream_filename
 		);
 		
 		//! @name Registering
@@ -70,21 +79,28 @@ class IndexFileFactory
 		typedef bool (*Detector)(AVFormatContext*, const char*);
 		typedef IndexFile* (*Creator)(AVFormatContext*);
 		
-		static void registerIndexFile(Detector detector, Creator creator);
+		/**
+		 * @param name Name of index format (should be short), statically
+		 *	allocated (we make no copy)
+		 * */
+		static void registerIndexFile(const char* name,
+			Detector detector, Creator creator);
+		static int formatCount();
+		static const char* formatName(int idx);
 		
 		class Registerer
 		{
 			public:
-				Registerer(Detector detector, Creator creator);
+				Registerer(const char* name, Detector detector, Creator creator);
 		};
 		//@}
 };
 
 // Helper macro for registration
-#define REGISTER_INDEX_FILE(name) \
-	IndexFile* create_ ## name (AVFormatContext* ctx) \
-	{ return new name (ctx); } \
-	IndexFileFactory::Registerer register_ ## name ( \
-		name::detect, create_ ## name);
+#define REGISTER_INDEX_FILE(name, cls) \
+	IndexFile* create_ ## cls (AVFormatContext* ctx) \
+	{ return new cls (ctx); } \
+	IndexFileFactory::Registerer register_ ## cls ( \
+		name, cls::detect, create_ ## cls);
 
 #endif // INDEXFILE_H

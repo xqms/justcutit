@@ -20,7 +20,7 @@ class KathreinIndexFile : public IndexFile
 		KathreinIndexFile(AVFormatContext* ctx);
 		virtual ~KathreinIndexFile();
 		
-		virtual bool open(const char* stream_filename);
+		virtual bool open(const char* filename, const char* stream_filename);
 		virtual loff_t bytePositionForPTS(int64_t pts);
 		
 		static bool detect(AVFormatContext* ctx, const char* stream_filename);
