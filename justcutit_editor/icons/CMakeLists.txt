@@ -12,9 +12,11 @@ function(add_image outputlist image)
 	set(${outputlist} ${${outputlist}} ${image}.png PARENT_SCOPE)
 endfunction()
 
-add_image(IMAGE_OUTPUTS cut-in)
-add_image(IMAGE_OUTPUTS cut-out)
+if(INKSCAPE)
+	add_image(IMAGE_OUTPUTS cut-in)
+	add_image(IMAGE_OUTPUTS cut-out)
 
-add_custom_target(icons ALL
-	DEPENDS ${IMAGE_OUTPUTS}
-)
+	add_custom_target(icons ALL
+		DEPENDS ${IMAGE_OUTPUTS}
+	)
+endif()
