@@ -13,10 +13,13 @@
 
 #include "ui_editor.h"
 #include "gldisplay.h"
+#include "io_http.h"
+
+#define DEBUG 0
+#define LOG_PREFIX "[editor]"
+#include <common/log.h>
 
 #include <stdio.h>
-
-#include "io_http.h"
 
 Editor::Editor(QWidget* parent)
  : QWidget(parent)
@@ -101,19 +104,12 @@ int Editor::loadFile(const QString& filename)
 	m_stream = 0;
 	
 	if(avformat_open_input(&m_stream, m_filename.toAscii().constData(), NULL, NULL) != 0)
-	{
-		fprintf(stderr, "Fatal: Could not open input stream\n");
-		
-		return 1;
-	}
+		return error("Could not open input stream");
 	
 	if(avformat_find_stream_info(m_stream, NULL) < 0)
-	{
-		fprintf(stderr, "Fatal: Could not find stream information\n");
-		return 1;
-	}
+		return error("Could not find stream information");
 	
-	av_dump_format(m_stream, 0, "/home/max/Downloads/Ben Hur.ts", false);
+	av_dump_format(m_stream, 0, m_filename.toAscii().constData(), false);
 	
 	m_videoCodecCtx = 0;
 	for(int i = 0; i < m_stream->nb_streams; ++i)
@@ -129,10 +125,7 @@ int Editor::loadFile(const QString& filename)
 	}
 	
 	if(!m_videoCodecCtx)
-	{
-		fprintf(stderr, "Fatal: Could not find video stream\n");
-		return 1;
-	}
+		return error("Could not find video stream");
 	
 	// Try to decode as fast as possible
 	m_videoCodecCtx->flags2 |= CODEC_FLAG2_FAST;
@@ -142,16 +135,10 @@ int Editor::loadFile(const QString& filename)
 	
 	m_videoCodec = avcodec_find_decoder(m_videoCodecCtx->codec_id);
 	if(!m_videoCodec)
-	{
-		fprintf(stderr, "Fatal: Unsupported codec\n");
-		return 1;
-	}
+		return error("Unsupported video codec");
 	
 	if(avcodec_open2(m_videoCodecCtx, m_videoCodec, NULL) < 0)
-	{
-		fprintf(stderr, "Fatal: Could not open codec\n");
-		return 1;
-	}
+		return error("Could not open video codec");
 	
 	initBuffer();
 	resetBuffer();
@@ -161,11 +148,11 @@ int Editor::loadFile(const QString& filename)
 	m_videoTimeBase_q = m_stream->streams[m_videoID]->time_base;
 	m_videoTimeBase = av_q2d(m_videoTimeBase_q);
 	
-	printf("File duration is % 5.2fs\n", (float)m_stream->duration / AV_TIME_BASE);
+	log_debug("File duration is % 5.2fs\n", (float)m_stream->duration / AV_TIME_BASE);
 	m_ui->timeSlider->setMaximum(m_stream->duration / AV_TIME_BASE);
 	
 	if(!m_indexFile)
-		printf("No index file present.\n");
+		log_debug("No index file present.\n");
 	
 	int w = m_videoCodecCtx->width;
 	int h = m_videoCodecCtx->height;
@@ -175,7 +162,6 @@ int Editor::loadFile(const QString& filename)
 	
 	displayCurrentFrame();
 	
-	av_log_set_level(AV_LOG_DEBUG);
 	return 0;
 }
 
@@ -201,7 +187,7 @@ void Editor::readFrame(bool needKeyFrame)
 		
 		if(avcodec_decode_video2(m_videoCodecCtx, &frame, &frameFinished, &packet) < 0)
 		{
-			fprintf(stderr, "Fatal: Could not decode packet\n");
+			error("Could not decode packet");
 			return;
 		}
 		
@@ -210,7 +196,7 @@ void Editor::readFrame(bool needKeyFrame)
 		
 		if(m_videoCodecCtx->pix_fmt != PIX_FMT_YUV420P)
 		{
-			printf("Fatal: Format %d is unsupported.\n", m_videoCodecCtx->pix_fmt);
+			error("Pixel format %d is unsupported.", m_videoCodecCtx->pix_fmt);
 			return;
 		}
 		
@@ -319,7 +305,7 @@ void Editor::seek_time(float seconds, bool display)
 	if((byte_offset == (loff_t)-1)
 		&& avformat_seek_file(m_stream, m_videoID, min_ts, ts, max_ts, 0) < 0)
 	{
-		fprintf(stderr, "Fatal: could not seek\n");
+		error("could not seek");
 		return;
 	}
 	
@@ -529,7 +515,7 @@ void Editor::cut_openList()
 		);
 		p.time = m_videoTimeBase * (stream_pts - m_timeStampStart);
 		
-		printf("CutPoint %d has stream PTS %10lld\n", i, stream_pts);
+		log_debug("CutPoint %d has stream PTS %10lld", i, stream_pts);
 		
 		seek_timeExact(p.time, false);
 		
