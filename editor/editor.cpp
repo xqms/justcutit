@@ -16,6 +16,7 @@
 #include "io_http.h"
 
 #define DEBUG 0
+#define PACKET_DEBUG 0
 #define LOG_PREFIX "[editor]"
 #include <common/log.h>
 
@@ -100,17 +101,36 @@ int Editor::loadFile(const QString& filename)
 		m_filename = filename;
 	
 	if(m_filename.isNull())
-		return false;
+		return 1;
 	
 // 	m_stream = avformat_alloc_context();
-// 	m_stream->pb = io_http_create(filename);
-	m_stream = 0;
+// 	m_stream->pb = io_http_create(filename.toAscii().constData());
+// 	m_stream = 0;
 	
-	if(avformat_open_input(&m_stream, m_filename.toAscii().constData(), NULL, NULL) != 0)
-		return error("Could not open input stream");
+	// Have to open repeatedly to get the correct stream duration despite
+	// a Kathrein bug (see seek_time() below for a description)
 	
-	if(avformat_find_stream_info(m_stream, NULL) < 0)
-		return error("Could not find stream information");
+	int tries;
+	for(tries = 5; tries > 0; --tries)
+	{
+		m_stream = 0;
+		if(avformat_open_input(&m_stream, m_filename.toAscii().constData(), NULL, NULL) != 0)
+			return error("Could not open input stream");
+		
+		if(avformat_find_stream_info(m_stream, NULL) < 0)
+			return error("Could not find stream information");
+		
+		if(m_stream->duration < AV_TIME_BASE * 10)
+		{
+			avformat_free_context(m_stream);
+			continue;
+		}
+		
+		break;
+	}
+	
+	if(!tries)
+		return error("Could not get around KATHREIN bug");
 	
 	av_dump_format(m_stream, 0, m_filename.toAscii().constData(), false);
 	
@@ -133,7 +153,6 @@ int Editor::loadFile(const QString& filename)
 	// Try to decode as fast as possible
 	m_videoCodecCtx->flags2 |= CODEC_FLAG2_FAST;
 	m_videoCodecCtx->flags2 |= CODEC_FLAG2_FASTPSKIP;
-	m_videoCodecCtx->flags |= CODEC_FLAG_LOW_DELAY;
 	m_videoCodecCtx->skip_loop_filter = AVDISCARD_ALL;
 	
 	m_videoCodec = avcodec_find_decoder(m_videoCodecCtx->codec_id);
@@ -151,11 +170,11 @@ int Editor::loadFile(const QString& filename)
 	m_videoTimeBase_q = m_stream->streams[m_videoID]->time_base;
 	m_videoTimeBase = av_q2d(m_videoTimeBase_q);
 	
-	log_debug("File duration is % 5.2fs\n", (float)m_stream->duration / AV_TIME_BASE);
+	log_debug("File duration is % 5.2fs", (float)m_stream->duration / AV_TIME_BASE);
 	m_ui->timeSlider->setMaximum(m_stream->duration / AV_TIME_BASE);
 	
 	if(!m_indexFile)
-		log_debug("No index file present.\n");
+		log_debug("No index file present.");
 	
 	int w = m_videoCodecCtx->width;
 	int h = m_videoCodecCtx->height;
@@ -179,6 +198,11 @@ void Editor::readFrame(bool needKeyFrame)
 	{
 		if(packet.stream_index != m_videoID)
 			continue;
+		
+#if PACKET_DEBUG
+		if(needKeyFrame)
+			printf("DTS = %'10lld\n", packet.dts);
+#endif
 		
 		if(needKeyFrame && !gotKeyFramePacket)
 		{
@@ -226,7 +250,10 @@ void Editor::readFrame(bool needKeyFrame)
 			return;
 		
 		if(frame.key_frame)
+		{
+			log_debug("key frame seek: got keyframe at %'10lld", packet.dts - m_timeStampStart);
 			return;
+		}
 	}
 }
 
@@ -292,27 +319,56 @@ void Editor::seek_time(float seconds, bool display)
 	int64_t pts_base = av_rescale_q(ts_rel, m_videoTimeBase_q, AV_TIME_BASE_Q);
 	loff_t byte_offset = (loff_t)-1;
 	
-	avcodec_flush_buffers(m_videoCodecCtx);
+	// From time to time, my receiver (Kathrein UFS-910) screws up
+	// and gives me the start of the stream instead of the requested
+	// offset. So we have to wrap this in a loop and try again...
 	
-	// If we got an index file, use it
-	if(m_indexFile)
-		byte_offset = m_indexFile->bytePositionForPTS(pts_base);
-	
-	if(byte_offset != (loff_t)-1)
+	int tries;
+	for(tries = 5; tries > 0; --tries)
 	{
-		if(avformat_seek_file(m_stream, -1, 0, byte_offset, byte_offset, AVSEEK_FLAG_BYTE) < 0)
-			byte_offset = (loff_t)-1;
+		avcodec_flush_buffers(m_videoCodecCtx);
+		
+		// If we got an index file, use it
+		if(m_indexFile)
+			byte_offset = m_indexFile->bytePositionForPTS(pts_base);
+		
+		if(byte_offset != (loff_t)-1)
+		{
+			log_debug("Seeking to byte pos %'10lld", byte_offset);
+			if(avformat_seek_file(m_stream, -1, 0, byte_offset, byte_offset, AVSEEK_FLAG_BYTE) < 0)
+			{
+				log_debug("Byte seeking to %fs failed", seconds);
+				byte_offset = (loff_t)-1;
+			}
+		}
+		
+		// Fallback to binary search
+		if(byte_offset == (loff_t)-1)
+		{
+			log_debug("Seeking to pts %'10lld\n", ts);
+			if(avformat_seek_file(m_stream, m_videoID, min_ts, ts, max_ts, 0) < 0)
+			{
+				error("could not seek");
+				return;
+			}
+		}
+		
+		resetBuffer();
+		
+		// Detect Kathrein bug
+		if(byte_offset
+			&& seconds > 1.0 // not actually at start of stream
+			&& m_frameTimestamps[0] - m_timeStampStart == 0) // bug
+		{
+			log_debug("KATHREIN BUG detected");
+			continue;
+		}
+		
+		break;
 	}
 	
-	// Fallback to binary search
-	if((byte_offset == (loff_t)-1)
-		&& avformat_seek_file(m_stream, m_videoID, min_ts, ts, max_ts, 0) < 0)
-	{
-		error("could not seek");
-		return;
-	}
-	
-	resetBuffer();
+	if(!tries)
+		QMessageBox::critical(this, "Error", "Seeking failed, sorry.");
 	
 	if(display)
 		displayCurrentFrame();
@@ -325,8 +381,11 @@ void Editor::seek_timeExact(float seconds, bool display)
 	
 	if(seconds - frameTime() > 5.0)
 	{
+		QMessageBox::critical(this, "Error", "Exact seeking failed.");
 		fprintf(stderr, "WARNING: Big gap: dest is %f, frameTime is %f\n",
 			seconds, frameTime());
+		seek_time(seconds, true);
+		return;
 	}
 	
 	while(frameTime() < seconds - 0.002)
