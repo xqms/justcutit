@@ -120,6 +120,12 @@ void Editor::loadFile()
 		return;
 	}
 	
+	// Try to decode as fast as possible
+	m_videoCodecCtx->flags2 |= CODEC_FLAG2_FAST;
+	m_videoCodecCtx->flags2 |= CODEC_FLAG2_FASTPSKIP;
+	m_videoCodecCtx->flags |= CODEC_FLAG_LOW_DELAY;
+	m_videoCodecCtx->skip_loop_filter = AVDISCARD_ALL;
+	
 	m_videoCodec = avcodec_find_decoder(m_videoCodecCtx->codec_id);
 	if(!m_videoCodec)
 	{
@@ -168,11 +174,20 @@ void Editor::readFrame(bool needKeyFrame)
 	AVPacket packet;
 	AVFrame frame;
 	int frameFinished;
+	bool gotKeyFramePacket = false;
 	
 	while(av_read_frame(m_stream, &packet) == 0)
 	{
 		if(packet.stream_index != m_videoID)
 			continue;
+		
+		if(needKeyFrame && !gotKeyFramePacket)
+		{
+			if(packet.flags & AV_PKT_FLAG_KEY)
+				gotKeyFramePacket = true;
+			else
+				continue;
+		}
 		
 		if(avcodec_decode_video2(m_videoCodecCtx, &frame, &frameFinished, &packet) < 0)
 		{
@@ -187,6 +202,12 @@ void Editor::readFrame(bool needKeyFrame)
 		{
 			printf("Fatal: Format %d is unsupported.\n", m_videoCodecCtx->pix_fmt);
 			return;
+		}
+		
+		if(needKeyFrame && !frame.key_frame)
+		{
+			av_free_packet(&packet);
+			continue;
 		}
 		
 		m_frameTimestamps[m_headFrame] = packet.dts;
