@@ -12,6 +12,10 @@ extern "C"
 #include <libavutil/avutil.h>
 }
 
+#define LOG_PREFIX "[kathrein]"
+#define DEBUG 1
+#include <common/log.h>
+
 const char* const FILE_NAME = "index.timeidx";
 
 KathreinIndexFile::KathreinIndexFile(AVFormatContext* ctx)
@@ -52,7 +56,7 @@ bool KathreinIndexFile::detect(AVFormatContext*,
 {
 	char* filename = fabricateFilename(stream_filename);
 	
-	printf("%s: fabricated file names: '%s'\n", __PRETTY_FUNCTION__, filename);
+	log_debug("fabricated file name: '%s'", filename);
 	
 	// Try if file is present
 	FILE* f = fopen(filename, "r");
@@ -60,8 +64,9 @@ bool KathreinIndexFile::detect(AVFormatContext*,
 	free(filename);
 	
 	bool ret = f;
+	
 	if(!ret)
-		perror("Could not open kathrein index file");
+		log_debug_perror("Could not open kathrein index file");
 	
 	fclose(f);
 	
@@ -83,20 +88,20 @@ bool KathreinIndexFile::open(const char* stream_filename)
 	
 	if(m_count == 0)
 	{
-		perror("[kathrein] Could not read table size");
+		log_debug_perror("Could not read table size");
 		return false;
 	}
 	
 	m_table = (TableEntry*)malloc(sizeof(TableEntry) * m_count);
 	if(!m_table)
 	{
-		perror("[kathrein] Could not allocate memory");
+		log_debug_perror("Could not allocate memory");
 		return false;
 	}
 	
 	if(fread((void*)m_table, sizeof(TableEntry), m_count, f) != m_count)
 	{
-		perror("[kathrein] Could not read table");
+		log_debug_perror("Could not read table");
 		return false;
 	}
 	
