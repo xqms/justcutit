@@ -28,6 +28,8 @@ add_executable(justcutit_editor
 	cutpointlist.cpp
 	cutpointmodel.cpp
 	movieslider.cpp
+	indexfile.cpp
+	index/kathrein.cpp
 )
 
 target_link_libraries(justcutit_editor

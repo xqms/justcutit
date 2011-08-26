@@ -144,6 +144,14 @@ void Editor::loadFile()
 	printf("File duration is % 5.2fs\n", (float)m_stream->duration / AV_TIME_BASE);
 	m_ui->timeSlider->setMaximum(m_stream->duration / AV_TIME_BASE);
 	
+	IndexFileFactory factory;
+	m_indexFile = factory.detectIndexFile(
+		m_stream, filename.toAscii().constData()
+	);
+	
+	if(!m_indexFile)
+		printf("No index file present.\n");
+	
 	int w = m_videoCodecCtx->width;
 	int h = m_videoCodecCtx->height;
 	
@@ -256,13 +264,29 @@ float Editor::frameTime(int idx)
 
 void Editor::seek_time(float seconds, bool display)
 {
-	int64_t ts = m_timeStampStart + seconds / m_videoTimeBase;
+	int64_t ts_rel = seconds / m_videoTimeBase;
+	int64_t ts = m_timeStampStart + ts_rel;
 	int64_t min_ts = ts - 2.0 / m_videoTimeBase;
 	int64_t max_ts = ts;
 	
+	int64_t pts_base = av_rescale_q(ts_rel, m_videoTimeBase_q, AV_TIME_BASE_Q);
+	loff_t byte_offset = (loff_t)-1;
+	
 	avcodec_flush_buffers(m_videoCodecCtx);
 	
-	if(avformat_seek_file(m_stream, m_videoID, min_ts, ts, max_ts, 0) < 0)
+	// If we got an index file, use it
+	if(m_indexFile)
+		byte_offset = m_indexFile->bytePositionForPTS(pts_base);
+	
+	if(byte_offset != (loff_t)-1)
+	{
+		if(avformat_seek_file(m_stream, -1, 0, byte_offset, byte_offset, AVSEEK_FLAG_BYTE) < 0)
+			byte_offset = (loff_t)-1;
+	}
+	
+	// Fallback to binary search
+	if((byte_offset == (loff_t)-1)
+		&& avformat_seek_file(m_stream, m_videoID, min_ts, ts, max_ts, 0) < 0)
 	{
 		fprintf(stderr, "Fatal: could not seek\n");
 		return;

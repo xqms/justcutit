@@ -9,6 +9,8 @@
 #include "cutpointlist.h"
 #include "cutpointmodel.h"
 
+#include "indexfile.h"
+
 extern "C"
 {
 #include <libavformat/avformat.h>
@@ -67,6 +69,8 @@ class Editor : public QWidget
 		
 		CutPointList m_cutPoints;
 		CutPointModel m_cutPointModel;
+		
+		IndexFile* m_indexFile;
 		
 		void readFrame(bool needKeyFrame = false);
 		void displayCurrentFrame();
