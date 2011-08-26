@@ -27,8 +27,14 @@ class Editor : public QWidget
 	public:
 		Editor(QWidget* parent = 0);
 		virtual ~Editor();
+		
+		inline AVFormatContext* formatContext()
+		{ return m_stream; }
+		
+		void takeIndexFile(IndexFile* file);
+		void autoDetectIndexFile();
 	public slots:
-		void loadFile();
+		int loadFile(const QString& filename = QString::null);
 		void pause();
 		
 		void seek_nextFrame(bool display = true);
@@ -51,6 +57,8 @@ class Editor : public QWidget
 		void cut_saveList();
 	private:
 		Ui_Editor* m_ui;
+		
+		QString m_filename;
 		
 		AVFormatContext* m_stream;
 		

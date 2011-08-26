@@ -30,8 +30,6 @@ Editor::Editor(QWidget* parent)
 	for(int i = 0; i < NUM_FRAMES; ++i)
 		m_frameBuffer[i] = avcodec_alloc_frame();
 	
-	QTimer::singleShot(0, this, SLOT(loadFile()));
-	
 	connect(m_ui->nextButton, SIGNAL(clicked()), SLOT(seek_nextFrame()));
 	connect(m_ui->nextSecondButton, SIGNAL(clicked()), SLOT(seek_plus1Second()));
 	connect(m_ui->next30SecButton, SIGNAL(clicked()), SLOT(seek_plus30Sec()));
@@ -68,35 +66,51 @@ Editor::~Editor()
 		av_free(m_frameBuffer[i]);
 }
 
-void Editor::loadFile()
+void Editor::takeIndexFile(IndexFile* file)
 {
-	QString filename = QFileDialog::getOpenFileName(
-		this,
-		"Open file",       // caption
-		QString(),         // dir
-		"TS files (*.ts)"  // filter
+	m_indexFile = file;
+}
+
+void Editor::autoDetectIndexFile()
+{
+	IndexFileFactory factory;
+	m_indexFile = factory.detectIndexFile(
+		m_stream, m_filename.toAscii().constData()
 	);
+}
+
+int Editor::loadFile(const QString& filename)
+{
 	if(filename.isNull())
 	{
-		QApplication::exit(1);
-		return;
+		m_filename = QFileDialog::getOpenFileName(
+			this,
+			"Open file",       // caption
+			QString(),         // dir
+			"TS files (*.ts)"  // filter
+		);
 	}
+	else
+		m_filename = filename;
+	
+	if(m_filename.isNull())
+		return false;
 	
 // 	m_stream = avformat_alloc_context();
 // 	m_stream->pb = io_http_create(filename);
 	m_stream = 0;
 	
-	if(avformat_open_input(&m_stream, filename.toAscii().constData(), NULL, NULL) != 0)
+	if(avformat_open_input(&m_stream, m_filename.toAscii().constData(), NULL, NULL) != 0)
 	{
 		fprintf(stderr, "Fatal: Could not open input stream\n");
 		
-		return;
+		return 1;
 	}
 	
 	if(avformat_find_stream_info(m_stream, NULL) < 0)
 	{
 		fprintf(stderr, "Fatal: Could not find stream information\n");
-		return;
+		return 1;
 	}
 	
 	av_dump_format(m_stream, 0, "/home/max/Downloads/Ben Hur.ts", false);
@@ -117,7 +131,7 @@ void Editor::loadFile()
 	if(!m_videoCodecCtx)
 	{
 		fprintf(stderr, "Fatal: Could not find video stream\n");
-		return;
+		return 1;
 	}
 	
 	// Try to decode as fast as possible
@@ -130,13 +144,13 @@ void Editor::loadFile()
 	if(!m_videoCodec)
 	{
 		fprintf(stderr, "Fatal: Unsupported codec\n");
-		return;
+		return 1;
 	}
 	
 	if(avcodec_open2(m_videoCodecCtx, m_videoCodec, NULL) < 0)
 	{
 		fprintf(stderr, "Fatal: Could not open codec\n");
-		return;
+		return 1;
 	}
 	
 	initBuffer();
@@ -150,11 +164,6 @@ void Editor::loadFile()
 	printf("File duration is % 5.2fs\n", (float)m_stream->duration / AV_TIME_BASE);
 	m_ui->timeSlider->setMaximum(m_stream->duration / AV_TIME_BASE);
 	
-	IndexFileFactory factory;
-	m_indexFile = factory.detectIndexFile(
-		m_stream, filename.toAscii().constData()
-	);
-	
 	if(!m_indexFile)
 		printf("No index file present.\n");
 	
@@ -167,6 +176,7 @@ void Editor::loadFile()
 	displayCurrentFrame();
 	
 	av_log_set_level(AV_LOG_DEBUG);
+	return 0;
 }
 
 void Editor::readFrame(bool needKeyFrame)
