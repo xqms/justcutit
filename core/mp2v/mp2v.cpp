@@ -19,7 +19,7 @@ extern "C"
 #define DUMP_CUTIN_PACKETS 0
 
 #define LOG_PREFIX "[MP2V]"
-#include "../log.h"
+#include <common/log.h>
 
 const int OUTPUT_BUFFER_SIZE = 10 * 1024 * 1024;
 

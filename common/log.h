@@ -32,10 +32,10 @@ inline void log_debug(const char* msg, ...)
 }
 #endif
 
-inline int error(const char* msg, ...)
+static int error(const char* msg, ...)
 	__attribute__((format (printf, 1, 2)));
 
-inline int error(const char* msg, ...)
+static int error(const char* msg, ...)
 {
 	va_list l;
 	va_start(l, msg);

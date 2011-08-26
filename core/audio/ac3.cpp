@@ -11,7 +11,7 @@ extern "C"
 
 #define DEBUG 1
 #define LOG_PREFIX "[AC3]"
-#include "../log.h"
+#include <common/log.h>
 
 const int BUFSIZE = 10 * 1024 * 1024;
 

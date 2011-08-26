@@ -3,6 +3,8 @@ project(justcutit)
 
 cmake_minimum_required(VERSION 2.8)
 
+include_directories(${CMAKE_HOME_DIRECTORY})
+
 find_package(BZip2 REQUIRED)
 find_package(ZLIB REQUIRED)
 set(CMAKE_THREAD_PREFER_PTHREAD)
@@ -17,5 +19,7 @@ include_directories(${FFMPEG_INCLUDE})
 
 add_definitions(-D__STDC_CONSTANT_MACROS)
 
+add_subdirectory(common)
 add_subdirectory(editor)
 add_subdirectory(core)
+
