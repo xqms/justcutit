@@ -21,6 +21,11 @@
 
 #include <stdio.h>
 
+static QIcon getIcon(const char* name)
+{
+	return QIcon::fromTheme(name, QIcon(QString("icons/%1.png").arg(name)));
+}
+
 Editor::Editor(QWidget* parent)
  : QWidget(parent)
  , m_frameIdx(0)
@@ -50,11 +55,9 @@ Editor::Editor(QWidget* parent)
 	
 	connect(m_ui->cutPointView, SIGNAL(activated(QModelIndex)), SLOT(cut_pointActivated(QModelIndex)));
 	
-	QStyle* style = QApplication::style();
-	
-	m_ui->cutlistOpenButton->setIcon(QIcon::fromTheme("document-open"));
-	m_ui->cutlistSaveButton->setIcon(QIcon::fromTheme("document-save"));
-	m_ui->cutlistDelItemButton->setIcon(QIcon::fromTheme("list-remove"));
+	m_ui->cutlistOpenButton->setIcon(getIcon("document-open"));
+	m_ui->cutlistSaveButton->setIcon(getIcon("document-save"));
+	m_ui->cutlistDelItemButton->setIcon(getIcon("list-remove"));
 	
 	connect(m_ui->cutlistOpenButton, SIGNAL(clicked()), SLOT(cut_openList()));
 	connect(m_ui->cutlistSaveButton, SIGNAL(clicked()), SLOT(cut_saveList()));
