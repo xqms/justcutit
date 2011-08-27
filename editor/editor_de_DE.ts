@@ -191,12 +191,12 @@
 <context>
     <name>QApplication</name>
     <message>
-        <location filename="main.cpp" line="123"/>
+        <location filename="main.cpp" line="117"/>
         <source>Error</source>
         <translation>Fehler</translation>
     </message>
     <message>
-        <location filename="main.cpp" line="124"/>
+        <location filename="main.cpp" line="118"/>
         <source>Could not load input file</source>
         <translation>Fehler beim Laden der Datei</translation>
     </message>
