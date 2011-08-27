@@ -144,8 +144,11 @@ loff_t KathreinIndexFile::bytePositionForPTS(int64_t pts)
 			idx_start = cmp;
 	}
 	
-	if(cmp > 0)
-		cmp -= 1;
+	// Seek a little before the actual point, so that the first keyframe is
+	// okay.
+	cmp -= 14;
+	if(cmp < 0)
+		cmp = 0;
 	
 	return m_table[cmp].offset;
 }
