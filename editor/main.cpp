@@ -1,6 +1,8 @@
 
 #include <QtGui/QApplication>
 #include <QtGui/QMessageBox>
+#include <QtCore/QTranslator>
+#include <QtCore/QLibraryInfo>
 
 #include <getopt.h>
 
@@ -33,10 +35,20 @@ int main(int argc, char* argv[])
 {
 	QApplication app(argc, argv);
 	
+	// i18n
+	QTranslator qtTranslator;
+	qtTranslator.load("qt_" + QLocale::system().name(),
+		QLibraryInfo::location(QLibraryInfo::TranslationsPath));
+	app.installTranslator(&qtTranslator);
+	
+	QTranslator appTranslator;
+	appTranslator.load("editor_" + QLocale::system().name());
+	app.installTranslator(&appTranslator);
+	
 	av_register_all();
 	
 	// Command line parsing
-	const char* file = 0;
+	QString file;
 	const char* indexFormat = 0;
 	const char* indexFile = 0;
 	
@@ -98,18 +110,12 @@ int main(int argc, char* argv[])
 	QCoreApplication::processEvents();
 	
 	if(argc > optind)
-	{
 		file = argv[optind];
-		
-		if(editor->loadFile(file) != 0)
-		{
-			fprintf(stderr, "Could not load input file\n");
-			return 1;
-		}
-	}
-	else if(editor->loadFile() != 0)
+	
+	if(editor->loadFile(file) != 0)
 	{
-		QMessageBox::critical(0, "Error", "Could not load input file");
+		QMessageBox::critical(0, QApplication::tr("Error"),
+			QApplication::tr("Could not load input file"));
 		return 1;
 	}
 	
@@ -120,7 +126,7 @@ int main(int argc, char* argv[])
 			indexFormat,
 			indexFile,
 			editor->formatContext(),
-			file
+			file.toLocal8Bit().constData()
 		);
 		
 		if(!index)

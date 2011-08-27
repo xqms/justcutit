@@ -92,9 +92,9 @@ int Editor::loadFile(const QString& filename)
 	{
 		m_filename = QFileDialog::getOpenFileName(
 			this,
-			"Open file",       // caption
+			tr("Open file"),       // caption
 			QString(),         // dir
-			"TS files (*.ts)"  // filter
+			tr("TS files (*.ts)")  // filter
 		);
 	}
 	else
@@ -368,7 +368,7 @@ void Editor::seek_time(float seconds, bool display)
 	}
 	
 	if(!tries)
-		QMessageBox::critical(this, "Error", "Seeking failed, sorry.");
+		QMessageBox::critical(this, tr("Error"), tr("Seeking failed, sorry."));
 	
 	if(display)
 		displayCurrentFrame();
@@ -381,7 +381,7 @@ void Editor::seek_timeExact(float seconds, bool display)
 	
 	if(seconds - frameTime() > 5.0)
 	{
-		QMessageBox::critical(this, "Error", "Exact seeking failed.");
+		QMessageBox::critical(this, tr("Error"), tr("Exact seeking failed."));
 		fprintf(stderr, "WARNING: Big gap: dest is %f, frameTime is %f\n",
 			seconds, frameTime());
 		seek_time(seconds, true);
@@ -539,9 +539,9 @@ void Editor::cut_openList()
 {
 	QString filename = QFileDialog::getOpenFileName(
 		this,
-		"Open cutlist",
+		tr("Open cutlist"),
 		QString(),
-		"Cutlists (*.cut)"
+		tr("Cutlists (*.cut)")
 	);
 	
 	if(filename.isNull())
@@ -550,13 +550,13 @@ void Editor::cut_openList()
 	QFile file(filename);
 	if(!file.open(QIODevice::ReadOnly))
 	{
-		QMessageBox::critical(this, "Error", "Could not open cutlist file");
+		QMessageBox::critical(this, tr("Error"), tr("Could not open cutlist file"));
 		return;
 	}
 	
 	if(!m_cutPoints.readFrom(&file))
 	{
-		QMessageBox::critical(this, "Error", "Cutlist file is damaged");
+		QMessageBox::critical(this, tr("Error"), tr("Cutlist file is damaged"));
 		return;
 	}
 	
@@ -612,9 +612,9 @@ void Editor::cut_saveList()
 {
 	QString filename = QFileDialog::getSaveFileName(
 		this,
-		"Open cutlist",
+		tr("Open cutlist"),
 		QString(),
-		"Cutlists (*.cut)"
+		tr("Cutlists (*.cut)")
 	);
 	
 	if(filename.isNull())
@@ -623,7 +623,7 @@ void Editor::cut_saveList()
 	QFile file(filename);
 	if(!file.open(QIODevice::WriteOnly))
 	{
-		QMessageBox::critical(this, "Error", "Could not open output file");
+		QMessageBox::critical(this, tr("Error"), tr("Could not open output file"));
 		return;
 	}
 	

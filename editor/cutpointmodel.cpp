@@ -59,9 +59,9 @@ QVariant CutPointModel::data(const QModelIndex& index, int role) const
 			switch(point.direction)
 			{
 				case CutPoint::CUT_IN:
-					return QString("Cut in at %1").arg(point.time, 7, 'f', 3);
+					return QString(tr("%1s: Cut in")).arg(point.time, 7, 'f', 3);
 				case CutPoint::CUT_OUT:
-					return QString("Cut out at %1").arg(point.time, 7, 'f', 3);
+					return QString(tr("%1s: Cut out")).arg(point.time, 7, 'f', 3);
 			}
 			break;
 	}

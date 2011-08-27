@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>justcutit Editor</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_3">
    <item>
@@ -52,7 +52,7 @@
         <item row="0" column="1">
          <widget class="QLabel" name="frameTypeLabel">
           <property name="text">
-           <string>TextLabel</string>
+           <string notr="true">TextLabel</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -69,7 +69,7 @@
         <item row="2" column="1">
          <widget class="QLabel" name="timeStampLabel">
           <property name="text">
-           <string>TextLabel</string>
+           <string notr="true">TextLabel</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -99,7 +99,7 @@
         <item row="3" column="1">
          <widget class="QLabel" name="headIdxLabel">
           <property name="text">
-           <string>TextLabel</string>
+           <string notr="true">TextLabel</string>
           </property>
          </widget>
         </item>
@@ -113,7 +113,7 @@
         <item row="4" column="1">
          <widget class="QLabel" name="frameIdxLabel">
           <property name="text">
-           <string>TextLabel</string>
+           <string notr="true">TextLabel</string>
           </property>
          </widget>
         </item>
@@ -127,7 +127,7 @@
         <item row="1" column="1">
          <widget class="QLabel" name="rawPTSLabel">
           <property name="text">
-           <string>TextLabel</string>
+           <string notr="true">TextLabel</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>

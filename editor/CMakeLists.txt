@@ -27,6 +27,13 @@ qt4_wrap_ui(uifiles
 	editor.ui
 )
 
+qt4_create_translation(LANG_SRCS editor_de_DE.ts
+	main.cpp
+	editor.cpp
+	cutpointmodel.cpp
+	editor.ui
+)
+
 add_executable(justcutit_editor
 	${uifiles}
 	main.cpp
@@ -38,6 +45,7 @@ add_executable(justcutit_editor
 	movieslider.cpp
 	indexfile.cpp
 	index/kathrein.cpp
+	${LANG_SRCS}
 )
 
 target_link_libraries(justcutit_editor
