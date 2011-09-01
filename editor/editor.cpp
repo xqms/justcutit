@@ -65,6 +65,8 @@ Editor::Editor(QWidget* parent)
 	connect(m_ui->cutlistDelItemButton, SIGNAL(clicked()), SLOT(cut_deletePoint()));
 	
 	m_ui->timeSlider->setList(&m_cutPoints);
+	
+	setDisabled(true);
 }
 
 Editor::~Editor()
@@ -184,6 +186,8 @@ int Editor::loadFile(const QString& filename)
 	m_ui->cutVideoWidget->setSize(w, h, aspectRatio);
 	
 	displayCurrentFrame();
+	
+	setDisabled(false);
 	
 	return 0;
 }
