@@ -41,7 +41,7 @@ class GLDisplay : public QGLWidget
 		 * @warning This @b must be called before the first
 		 * call of paintFrame()!
 		 * */
-		void setSize(int w, int h);
+		void setSize(int w, int h, float aspectRatio = 1.0f);
 		
 		/**
 		 * Paint a frame. This does an @b immediate repaint() to
@@ -53,6 +53,7 @@ class GLDisplay : public QGLWidget
 		AVFrame* m_frame;
 		int m_w;
 		int m_h;
+		float m_aspectRatio;
 		
 		QGLShaderProgram m_yuvShader;
 		

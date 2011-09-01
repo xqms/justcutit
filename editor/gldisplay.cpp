@@ -51,11 +51,11 @@ void GLDisplay::initializeGL()
 
 void GLDisplay::resizeGL(int w, int h)
 {
-	float scale_w = (float)w / m_w;
+	float scale_w = (float)w / (m_aspectRatio*m_w);
 	float scale_h = (float)h / m_h;
 	float scale = qMin(scale_w, scale_h);
 	
-	glViewport(0, 0, (GLint)(scale * m_w), (GLint)(scale * m_h));
+	glViewport(0, 0, (GLint)(scale * m_aspectRatio * m_w), (GLint)(scale * m_h));
 	
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -64,12 +64,13 @@ void GLDisplay::resizeGL(int w, int h)
 	glLoadIdentity();
 }
 
-void GLDisplay::setSize(int w, int h)
+void GLDisplay::setSize(int w, int h, float aspectRatio)
 {
 	if(m_w != w || m_h != h)
 	{
 		m_w = w;
 		m_h = h;
+		m_aspectRatio = aspectRatio;
 		updateGeometry();
 	}
 }
@@ -109,7 +110,7 @@ void GLDisplay::paintFrame(AVFrame* frame)
 
 QSize GLDisplay::sizeHint() const
 {
-	return QSize(m_w/2, m_h/2);
+	return QSize(m_aspectRatio * m_w / 2, m_h/2);
 }
 
 void GLDisplay::paintGL()

@@ -179,8 +179,9 @@ int Editor::loadFile(const QString& filename)
 	int w = m_videoCodecCtx->width;
 	int h = m_videoCodecCtx->height;
 	
-	m_ui->videoWidget->setSize(w, h);
-	m_ui->cutVideoWidget->setSize(w, h);
+	float aspectRatio = av_q2d(m_videoCodecCtx->sample_aspect_ratio);
+	m_ui->videoWidget->setSize(w, h, aspectRatio);
+	m_ui->cutVideoWidget->setSize(w, h, aspectRatio);
 	
 	displayCurrentFrame();
 	
