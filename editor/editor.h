@@ -43,9 +43,11 @@ class Editor : public QWidget
 		void seek_time(float seconds, bool display = true);
 		void seek_timeExact(float seconds, bool display = true);
 		void seek_timeExactBefore(float seconds, bool display = true);
+		void seek_plus5Frame();
 		void seek_plus1Second();
 		void seek_plus30Sec();
-		void seek_prevFrame();
+		void seek_prevFrame(bool display = true);
+		void seek_minus5Frame();
 		void seek_minus1Second();
 		void seek_minus30Sec();
 		void seek_slider(int value);

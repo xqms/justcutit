@@ -183,6 +183,13 @@
       </widget>
      </item>
      <item>
+      <widget class="QPushButton" name="prev5Button">
+       <property name="text">
+        <string>-5F</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="prevButton">
        <property name="text">
         <string>-1F</string>
@@ -193,6 +200,13 @@
       <widget class="QPushButton" name="nextButton">
        <property name="text">
         <string>+1F</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="next5Button">
+       <property name="text">
+        <string>+5F</string>
        </property>
       </widget>
      </item>

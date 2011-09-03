@@ -40,9 +40,11 @@ Editor::Editor(QWidget* parent)
 		m_frameBuffer[i] = avcodec_alloc_frame();
 	
 	connect(m_ui->nextButton, SIGNAL(clicked()), SLOT(seek_nextFrame()));
+	connect(m_ui->next5Button, SIGNAL(clicked()), SLOT(seek_plus5Frame()));
 	connect(m_ui->nextSecondButton, SIGNAL(clicked()), SLOT(seek_plus1Second()));
 	connect(m_ui->next30SecButton, SIGNAL(clicked()), SLOT(seek_plus30Sec()));
 	connect(m_ui->prevButton, SIGNAL(clicked()), SLOT(seek_prevFrame()));
+	connect(m_ui->prev5Button, SIGNAL(clicked()), SLOT(seek_minus5Frame()));
 	connect(m_ui->prevSecondButton, SIGNAL(clicked()), SLOT(seek_minus1Second()));
 	connect(m_ui->prev30SecButton, SIGNAL(clicked()), SLOT(seek_minus30Sec()));
 	
@@ -421,7 +423,7 @@ void Editor::resetBuffer()
 	m_headFrame++;
 }
 
-void Editor::seek_prevFrame()
+void Editor::seek_prevFrame(bool display)
 {
 	float time = frameTime();
 	
@@ -437,7 +439,22 @@ void Editor::seek_prevFrame()
 		return;
 	}
 	
-	displayCurrentFrame();
+	if(display)
+		displayCurrentFrame();
+}
+
+void Editor::seek_plus5Frame()
+{
+	for(int i = 0; i < 4; ++i)
+		seek_nextFrame(false);
+	seek_nextFrame(true);
+}
+
+void Editor::seek_minus5Frame()
+{
+	for(int i = 0; i < 4; ++i)
+		seek_prevFrame(false);
+	seek_prevFrame(true);
 }
 
 void Editor::seek_plus1Second()
