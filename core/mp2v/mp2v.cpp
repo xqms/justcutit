@@ -87,6 +87,9 @@ int MP2V::handlePacket(AVPacket* packet)
 {
 	int gotFrame;
 	
+	packet->dts = pts_rel(packet->dts);
+	packet->pts = pts_rel(packet->pts);
+	
 	if(!m_encoding)
 	{
 		// Normal passthrough operation

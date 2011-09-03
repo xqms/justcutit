@@ -118,6 +118,7 @@ bool setupHandlers(AVFormatContext* input, AVFormatContext* output, const CutPoi
 			handler->setCutList(cutlist);
 			handler->setOutputContext(output);
 			handler->setOutputStream(ostream);
+			handler->setStartPTS_AV(input->start_time);
 			
 			if(handler->init() != 0)
 			{

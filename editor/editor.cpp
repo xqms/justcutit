@@ -167,10 +167,11 @@ int Editor::loadFile(const QString& filename)
 	if(avcodec_open2(m_videoCodecCtx, m_videoCodec, NULL) < 0)
 		return error("Could not open video codec");
 	
+	m_timeStampStart = av_rescale_q(m_stream->start_time,
+		AV_TIME_BASE_Q, m_stream->streams[m_videoID]->time_base);
+	
 	initBuffer();
 	resetBuffer();
-	
-	m_timeStampStart = m_frameTimestamps[0];
 	
 	m_videoTimeBase_q = m_stream->streams[m_videoID]->time_base;
 	m_videoTimeBase = av_q2d(m_videoTimeBase_q);
@@ -259,7 +260,7 @@ void Editor::readFrame(bool needKeyFrame)
 		
 		if(frame.key_frame)
 		{
-			log_debug("key frame seek: got keyframe at %'10lld", packet.dts - m_timeStampStart);
+			log_debug("key frame seek: got keyframe at %'10lld", pts_val(packet.dts - m_timeStampStart));
 			return;
 		}
 	}
@@ -280,7 +281,7 @@ void Editor::displayCurrentFrame()
 	if(!m_ui->timeSlider->isSliderDown())
 	{
 		m_ui->timeSlider->blockSignals(true);
-		m_ui->timeSlider->setValue((m_frameTimestamps[m_frameIdx] - m_timeStampStart) * m_videoTimeBase);
+		m_ui->timeSlider->setValue(pts_val(m_frameTimestamps[m_frameIdx] - m_timeStampStart) * m_videoTimeBase);
 		m_ui->timeSlider->blockSignals(false);
 	}
 }
@@ -314,13 +315,13 @@ float Editor::frameTime(int idx)
 		idx = m_frameIdx;
 	
 	return m_videoTimeBase *
-		(m_frameTimestamps[idx] - m_timeStampStart);
+		pts_val(m_frameTimestamps[idx] - m_timeStampStart);
 }
 
 void Editor::seek_time(float seconds, bool display)
 {
 	int64_t ts_rel = seconds / m_videoTimeBase;
-	int64_t ts = m_timeStampStart + ts_rel;
+	int64_t ts = pts_val(m_timeStampStart + ts_rel);
 	int64_t min_ts = ts - 2.0 / m_videoTimeBase;
 	int64_t max_ts = ts;
 	
@@ -510,7 +511,7 @@ void Editor::cut_cut(CutPoint::Direction dir)
 	);
 	
 	int64_t pts = av_rescale_q(
-		m_frameTimestamps[m_frameIdx],
+		pts_val(m_frameTimestamps[m_frameIdx] - m_timeStampStart),
 		m_videoTimeBase_q,
 		AV_TIME_BASE_Q
 	);
@@ -583,7 +584,7 @@ void Editor::cut_openList()
 			AV_TIME_BASE_Q,
 			m_videoTimeBase_q
 		);
-		p.time = m_videoTimeBase * (stream_pts - m_timeStampStart);
+		p.time = m_videoTimeBase * stream_pts;
 		
 		log_debug("CutPoint %d has stream PTS %10lld", i, stream_pts);
 		
@@ -667,6 +668,12 @@ void Editor::proceed()
 	{
 		qApp->exit(10);
 	}
+}
+
+int64_t Editor::pts_val(int64_t value) const
+{
+	const int64_t mask = 0xFFFFFFFFFFFFFFFFLL >> (64 - m_stream->streams[m_videoID]->pts_wrap_bits);
+	return value & mask;
 }
 
 #include "editor.moc"

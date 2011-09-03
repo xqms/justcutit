@@ -82,6 +82,7 @@ int AC3::init()
 
 int AC3::handlePacket(AVPacket* packet)
 {
+	packet->pts = pts_rel(packet->pts);
 	int64_t current_time = packet->pts;
 	
 	if(m_nc && current_time + packet->duration > m_nc->time
@@ -95,10 +96,10 @@ int AC3::handlePacket(AVPacket* packet)
 			return error("Could not decode audio stream");
 		
 		int64_t total_samples = frame_size / sizeof(int16_t);
-		int64_t needed_time = m_nc->time - packet->pts;
+		int64_t needed_time = m_nc->time - current_time;
 		int64_t needed_samples = av_rescale(needed_time, total_samples, packet->duration);
 		
-		log_debug("%'10lld: taking %lld of %lld samples", packet->pts, needed_samples, total_samples);
+		log_debug("%'10lld: taking %lld of %lld samples", current_time, needed_samples, total_samples);
 		
 		m_saved_samples = needed_samples;
 		
@@ -125,12 +126,12 @@ int AC3::handlePacket(AVPacket* packet)
 			return error("Could not decode audio stream");
 		
 		int64_t total_samples = frame_size / sizeof(int16_t);
-		int64_t time_off = m_nc->time - packet->pts;
+		int64_t time_off = m_nc->time - current_time;
 		int64_t needed_time = packet->duration - time_off;
 		int64_t sample_off = av_rescale(time_off, total_samples, packet->duration);
 		int64_t needed_samples = total_samples - sample_off;
 		
-		log_debug("%'10lld: taking %lld of %lld samples", packet->pts, needed_samples, total_samples);
+		log_debug("%'10lld: taking %lld of %lld samples", current_time, needed_samples, total_samples);
 		
 		log_debug("previous frame size: %d", outputStream()->codec->frame_size);
 		outputStream()->codec->frame_size = needed_samples / outputStream()->codec->channels;
@@ -140,9 +141,9 @@ int AC3::handlePacket(AVPacket* packet)
 		if(bytes < 0)
 			return error("Could not encode audio frame");
 		
-		packet->size = bytes;
-		packet->pts = m_nc->time;
-		packet->duration = needed_time;
+// 		packet->size = bytes;
+// 		packet->pts = m_nc->time;
+// 		packet->duration = needed_time;
 		
 		
 		return 0;
@@ -155,21 +156,30 @@ int AC3::handlePacket(AVPacket* packet)
 		int64_t cutout_time = m_nc->time;
 		m_nc = cutList().nextCutPoint(current_time);
 		
+		log_debug("CUT-OUT at %'10lld", current_time);
+		
 		if(m_nc)
 			setTotalCutout(m_nc->time - (cutout_time - totalCutout()));
 		else
+		{
+			log_debug("No next cutpoint, deactivating...");
 			setActive(false);
+		}
 	}
 	
 	if(m_nc && current_time >= m_nc->time
 		&& m_cutout && m_nc->direction == CutPoint::IN)
 	{
+		log_debug("CUT-IN at %'10lld", current_time);
 		m_cutout = false;
 		m_nc = cutList().nextCutPoint(current_time);
 	}
 	
 	if(!m_cutout)
-		writeInputPacket(packet);
+	{
+		if(writeInputPacket(packet) != 0)
+			return error("Could not write input packet");
+	}
 	
 	return 0;
 }

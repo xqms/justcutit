@@ -58,8 +58,18 @@ int StreamHandler::writeInputPacket(AVPacket* packet)
 	return av_interleaved_write_frame(m_octx, packet);
 }
 
+int64_t StreamHandler::pts_rel(int64_t pts) const
+{
+	const int64_t mask = 0xFFFFFFFFFFFFFFFFLL >> (64 - m_stream->pts_wrap_bits);
+	
+	return (pts - m_startTime) & mask;
+}
 
-
+void StreamHandler::setStartPTS_AV(int64_t start_av)
+{
+	m_startTime = av_rescale_q(start_av, AV_TIME_BASE_Q, m_stream->time_base);
+	printf("StreamHandler: got start time %'10lld, own stream start time would be %'10lld\n", m_startTime, m_stream->start_time);
+}
 
 // StreamHandlerFactory
 

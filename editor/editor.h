@@ -90,6 +90,7 @@ class Editor : public QWidget
 		float frameTime(int idx = -1);
 		void resetBuffer();
 		void initBuffer();
+		int64_t pts_val(int64_t value) const;
 };
 
 #endif

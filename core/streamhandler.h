@@ -47,6 +47,7 @@ class StreamHandler
 		void setCutList(const CutPointList& list);
 		void setOutputContext(AVFormatContext* ctx);
 		void setOutputStream(AVStream* outputStream);
+		void setStartPTS_AV(int64_t start_av);
 		
 		inline AVStream* stream() const
 		{ return m_stream; }
@@ -76,12 +77,20 @@ class StreamHandler
 		{ return m_totalCutout; }
 		
 		void setActive(bool active);
+		
+		/**
+		 * Calculate PTS relative to stream start time.
+		 * Cutpoints are defined relative to start time, so use
+		 * this function whenever you are using a raw PTS.
+		 * */
+		int64_t pts_rel(int64_t pts) const;
 	private:
 		AVStream* m_stream;
 		AVStream* m_ostream;
 		AVFormatContext* m_octx;
 		CutPointList m_cutlist;
 		int64_t m_totalCutout;
+		int64_t m_startTime;
 		bool m_active;
 };
 
