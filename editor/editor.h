@@ -33,6 +33,8 @@ class Editor : public QWidget
 		
 		void takeIndexFile(IndexFile* file);
 		void autoDetectIndexFile();
+		
+		void proceedTo(const QString& filename);
 	public slots:
 		int loadFile(const QString& filename = QString::null);
 		void pause();
@@ -54,11 +56,14 @@ class Editor : public QWidget
 		void cut_pointActivated(QModelIndex idx);
 		void cut_deletePoint();
 		void cut_openList();
-		void cut_saveList();
+		bool cut_saveList(const QString& filename = QString::null);
+		
+		void proceed();
 	private:
 		Ui_Editor* m_ui;
 		
 		QString m_filename;
+		QString m_proceedTo;
 		
 		AVFormatContext* m_stream;
 		

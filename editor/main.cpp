@@ -28,6 +28,8 @@ void usage(FILE* f)
 		" --index-fmt FORMAT  Use FORMAT as index file format\n"
 		"                     This is required if you use --index!\n"
 		" --index-fmt help    Display available index formats\n"
+		" --proceed-to PATH   Display \"Proceed\" button which saves the\n"
+		"                     cutlist to PATH and exits with status 10\n"
 	);
 }
 
@@ -49,6 +51,7 @@ int main(int argc, char* argv[])
 	
 	// Command line parsing
 	QString file;
+	QString proceedTo;
 	const char* indexFormat = 0;
 	const char* indexFile = 0;
 	
@@ -58,6 +61,7 @@ int main(int argc, char* argv[])
 		static struct option long_options[] = {
 			{"index", required_argument, 0, 'i'},
 			{"index-fmt", required_argument, 0, 'f'},
+			{"proceed-to", required_argument, 0, 'p'},
 			{"help", no_argument, 0, 'h'},
 			{0, 0, 0, 0}
 		};
@@ -79,6 +83,9 @@ int main(int argc, char* argv[])
 				}
 				
 				indexFormat = optarg;
+				break;
+			case 'p':
+				proceedTo = optarg;
 				break;
 			case 'h':
 				usage(stdout);
@@ -136,6 +143,9 @@ int main(int argc, char* argv[])
 	}
 	else
 		editor->autoDetectIndexFile();
+	
+	if(!proceedTo.isNull())
+		editor->proceedTo(proceedTo);
 	
 	editor->show();
 	

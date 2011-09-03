@@ -59,10 +59,13 @@ Editor::Editor(QWidget* parent)
 	m_ui->cutlistOpenButton->setIcon(getIcon("document-open"));
 	m_ui->cutlistSaveButton->setIcon(getIcon("document-save"));
 	m_ui->cutlistDelItemButton->setIcon(getIcon("list-remove"));
+	m_ui->proceedButton->setIcon(getIcon("system-run"));
+	m_ui->proceedButton->setVisible(false);
 	
 	connect(m_ui->cutlistOpenButton, SIGNAL(clicked()), SLOT(cut_openList()));
 	connect(m_ui->cutlistSaveButton, SIGNAL(clicked()), SLOT(cut_saveList()));
 	connect(m_ui->cutlistDelItemButton, SIGNAL(clicked()), SLOT(cut_deletePoint()));
+	connect(m_ui->proceedButton, SIGNAL(clicked()), SLOT(proceed()));
 	
 	m_ui->timeSlider->setList(&m_cutPoints);
 	
@@ -613,28 +616,34 @@ void Editor::cut_openList()
 	}
 }
 
-void Editor::cut_saveList()
+bool Editor::cut_saveList(const QString& filename)
 {
-	QString filename = QFileDialog::getSaveFileName(
-		this,
-		tr("Open cutlist"),
-		QString(),
-		tr("Cutlists (*.cut)")
-	);
-	
+	QString f = filename;
 	if(filename.isNull())
-		return;
+	{
+		f = QFileDialog::getSaveFileName(
+			this,
+			tr("Open cutlist"),
+			QString(),
+			tr("Cutlists (*.cut)")
+		);
+	}
 	
-	QFile file(filename);
+	if(f.isNull())
+		return false;
+	
+	QFile file(f);
 	if(!file.open(QIODevice::WriteOnly))
 	{
 		QMessageBox::critical(this, tr("Error"), tr("Could not open output file"));
-		return;
+		return false;
 	}
 	
 	m_cutPoints.writeTo(&file);
 	
 	file.close();
+	
+	return true;
 }
 
 void Editor::cut_deletePoint()
@@ -644,6 +653,20 @@ void Editor::cut_deletePoint()
 		return;
 	
 	m_cutPointModel.removeRow(idx.row());
+}
+
+void Editor::proceedTo(const QString& filename)
+{
+	m_proceedTo = filename;
+	m_ui->proceedButton->setVisible(true);
+}
+
+void Editor::proceed()
+{
+	if(cut_saveList(m_proceedTo))
+	{
+		qApp->exit(10);
+	}
 }
 
 #include "editor.moc"
