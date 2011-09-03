@@ -7,6 +7,7 @@ extern "C"
 #include <libavformat/avformat.h>
 }
 
+#include <getopt.h>
 #include <stdio.h>
 #include <vector>
 #include <map>
@@ -15,6 +16,7 @@ extern "C"
 
 #include "streamhandler.h"
 #include "cutlist.h"
+#include "io_split.h"
 
 #if 0
 #define LOG_DEBUG printf
@@ -28,7 +30,11 @@ typedef std::map<int, StreamHandler*> StreamMap;
 
 void usage(FILE* dest)
 {
-	fprintf(dest, "Usage: justcutit <file> <cutlist> <output-file>\n");
+	fprintf(dest, "Usage: justcutit [-s <split size in MiB>] <file> <cutlist> <output-file>\n"
+		"\n"
+		"If you use the -s option, you need to provide a template string like "
+		"\"output_%%d.ts\" as output-file.\n"
+	);
 }
 
 bool readCutlist(FILE* file, CutPointList* dest)
@@ -121,6 +127,13 @@ bool setupHandlers(AVFormatContext* input, AVFormatContext* output, const CutPoi
 				return false;
 			}
 			
+			if(ostream->codec->codec)
+			{
+				printf("Using encoder '%s' for output of stream %d\n",
+					   ostream->codec->codec->name, istream->index
+				);
+			}
+			
 			(*map)[istream->index] = handler;
 		}
 	}
@@ -136,19 +149,58 @@ int main(int argc, char** argv)
 	StreamMap stream_mapping;
 	int64_t duration;
 	int last_percent_done = 0;
+	uint64_t split_size = 0;
+	bool verbose = false;
 	
-	if(argc != 4)
+	av_register_all();
+	
+	while(1)
+	{
+		int option_index;
+		struct option long_options[] = {
+			{"split", required_argument, 0, 's'},
+			{"verbose", no_argument, 0, 'v'},
+			{"help", no_argument, 0, 'h'},
+			{0, 0, 0, 0}
+		};
+		
+		int c = getopt_long(argc, argv, "hs:v", long_options, &option_index);
+		
+		if(c == -1)
+			break;
+		
+		switch(c)
+		{
+			case 'h':
+				usage(stdout);
+				return 0;
+			case 's':
+				split_size = atoll(argv[2]) * 1024 * 1024;
+				break;
+			case 'v':
+				verbose = true;
+				break;
+			default:
+				usage(stderr);
+				return 1;
+		}
+	}
+	
+	if(argc - optind != 3)
 	{
 		usage(stderr);
 		return 1;
 	}
 	
-	av_register_all();
+	av_log_set_level(AV_LOG_DEBUG);
 	
-	printf("Opening file '%s'\n", argv[1]);
-	if(avformat_open_input(&ctx, argv[1], NULL, NULL) != 0)
+	
+	
+	printf("Opening file '%s'\n", argv[optind]);
+	int ret = avformat_open_input(&ctx, argv[optind], NULL, NULL);
+	if(ret != 0)
 	{
-		fprintf(stderr, "Fatal: Could not open input stream\n");
+		fprintf(stderr, "Fatal: Could not open input stream (ret=%d => %s)\n", ret, strerror(-ret));
 		return 1;
 	}
 	
@@ -159,10 +211,10 @@ int main(int argc, char** argv)
 	}
 	
 	printf(" [+] Input file duration: %.2f\n", (float)ctx->duration / AV_TIME_BASE);
-	av_dump_format(ctx, 0, argv[1], false);
+	av_dump_format(ctx, 0, argv[optind], false);
 	
 	printf("Reading cutlist\n");
-	FILE* cutlist_file = fopen(argv[2], "r");
+	FILE* cutlist_file = fopen(argv[optind+1], "r");
 	if(!cutlist_file)
 	{
 		perror("Could not open cutlist");
@@ -179,7 +231,7 @@ int main(int argc, char** argv)
 	
 	if(!cutlist.size())
 	{
-		printf("Cutlist contains no cutpoints. Nothing to do!\n");
+		fprintf(stderr, "Cutlist contains no cutpoints. Nothing to do!\n");
 		return 2;
 	}
 	
@@ -189,10 +241,22 @@ int main(int argc, char** argv)
 		fprintf(stderr, "Could not allocate output context\n");
 		return 1;
 	}
-	if(avio_open(&output_ctx->pb, argv[3], AVIO_FLAG_WRITE) != 0)
+	if(split_size == 0)
 	{
-		fprintf(stderr, "Could not open output file\n");
-		return 1;
+		if(avio_open(&output_ctx->pb, argv[optind+2], AVIO_FLAG_WRITE) != 0)
+		{
+			fprintf(stderr, "Could not open output file\n");
+			return 1;
+		}
+	}
+	else
+	{
+		output_ctx->pb = io_split_create(argv[optind+2], split_size);
+		if(!output_ctx->pb)
+		{
+			fprintf(stderr, "Could not open output file\n");
+			return 1;
+		}
 	}
 	
 	output_ctx->oformat->flags |= AVFMT_TS_NONSTRICT;
@@ -201,7 +265,7 @@ int main(int argc, char** argv)
 		return 1;
 	
 	printf(" [+] Output streams:\n");
-	av_dump_format(output_ctx, 0, argv[3], true);
+	av_dump_format(output_ctx, 0, argv[optind+2], true);
 	
 	
 	avformat_write_header(output_ctx, 0);
@@ -216,9 +280,14 @@ int main(int argc, char** argv)
 		AVStream* stream = ctx->streams[packet.stream_index];
 		int percent = av_rescale(packet.dts - stream->start_time, 100, stream->duration);
 		
-		if(percent / 10 != last_percent_done / 10 && percent > last_percent_done)
+		int granularity = verbose ? 1 : 10;
+		
+		if(percent / granularity != last_percent_done / 10 && percent > last_percent_done)
 		{
 			printf("%02d%% done (approximation)\n", percent);
+			if(verbose)
+				fflush(stdout);
+			
 			last_percent_done = percent;
 		}
 		
@@ -240,6 +309,9 @@ int main(int argc, char** argv)
 	
 	av_write_trailer(output_ctx);
 	
-	avio_close(output_ctx->pb);
+	if(split_size == 0)
+		avio_close(output_ctx->pb);
+	else
+		io_split_close(output_ctx->pb);
 	avformat_free_context(output_ctx);
 }

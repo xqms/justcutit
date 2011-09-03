@@ -5,6 +5,7 @@ add_executable(justcutit
 	streamhandler.cpp
 	mp2v/mp2v.cpp
 	audio/ac3.cpp
+	io_split.cpp
 )
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../justcutit_editor)
