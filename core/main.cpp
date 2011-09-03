@@ -176,7 +176,7 @@ int main(int argc, char** argv)
 				usage(stdout);
 				return 0;
 			case 's':
-				split_size = atoll(argv[2]) * 1024 * 1024;
+				split_size = atoll(optarg) * 1024 * 1024;
 				break;
 			case 'v':
 				verbose = true;
@@ -267,7 +267,6 @@ int main(int argc, char** argv)
 	
 	printf(" [+] Output streams:\n");
 	av_dump_format(output_ctx, 0, argv[optind+2], true);
-	
 	
 	avformat_write_header(output_ctx, 0);
 	
