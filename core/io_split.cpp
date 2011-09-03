@@ -65,6 +65,7 @@ static char* malloc_and_snprintf(const char* fmt, ...)
 int io_split_write_packet(void* opaque, uint8_t* buf, int buf_size)
 {
 	IOSplitContext* d = (IOSplitContext*)opaque;
+	int c = 0;
 	
 	if(!d->f || d->written_size + buf_size > d->split_size)
 	{
@@ -78,7 +79,8 @@ int io_split_write_packet(void* opaque, uint8_t* buf, int buf_size)
 			return -1;
 		}
 		
-		d->f = fopen(filename, "wb");
+		fprintf(stderr, "[io_split] Opening output file '%s'\n", filename);
+		d->f = fopen64(filename, "wb");
 		free(filename);
 		
 		if(!d->f)
@@ -91,11 +93,23 @@ int io_split_write_packet(void* opaque, uint8_t* buf, int buf_size)
 		d->index++;
 	}
 	
-	int ret = fwrite(buf, 1, buf_size, d->f);
-	if(ret >= 0)
-		d->written_size += buf_size;
+	while(buf_size > 0)
+	{
+		int ret = fwrite(buf, 1, buf_size, d->f);
+		
+		if(ret <= 0)
+		{
+			perror("[io_split] Could not fwrite()");
+			return ret;
+		}
+		
+		buf_size -= ret;
+		c += ret;
+	}
 	
-	return ret;
+	d->written_size += c;
+	
+	return c;
 }
 
 AVIOContext* io_split_create(const char* path, uint64_t split_size)
@@ -136,6 +150,7 @@ error_path:
 error:
 	free(buffer);
 	delete d;
+	return NULL;
 }
 
 void io_split_close(AVIOContext* ctx)
@@ -143,7 +158,12 @@ void io_split_close(AVIOContext* ctx)
 	IOSplitContext* d = (IOSplitContext*)(ctx->opaque);
 	
 	if(d->f)
+	{
+		fprintf(stderr, "[io_split] Closing output file, written size: %lldMiB\n",
+			d->written_size / 1024 / 1024
+		);
 		fclose(d->f);
+	}
 	
 	delete d;
 }
