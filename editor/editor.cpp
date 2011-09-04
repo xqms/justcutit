@@ -169,11 +169,12 @@ int Editor::loadFile(const QString& filename)
 	if(avcodec_open2(m_videoCodecCtx, m_videoCodec, NULL) < 0)
 		return error("Could not open video codec");
 	
-	m_timeStampStart = av_rescale_q(m_stream->start_time,
-		AV_TIME_BASE_Q, m_stream->streams[m_videoID]->time_base);
-	
 	initBuffer();
 	resetBuffer();
+	
+	m_timeStampStart = av_rescale_q(m_stream->start_time,
+		AV_TIME_BASE_Q, m_stream->streams[m_videoID]->time_base);
+	m_timeStampFirstKey = m_frameTimestamps[0];
 	
 	m_videoTimeBase_q = m_stream->streams[m_videoID]->time_base;
 	m_videoTimeBase = av_q2d(m_videoTimeBase_q);
@@ -369,7 +370,7 @@ void Editor::seek_time(float seconds, bool display)
 		// Detect Kathrein bug
 		if(byte_offset
 			&& seconds > 1.0 // not actually at start of stream
-			&& m_frameTimestamps[0] - m_timeStampStart == 0) // bug
+			&& m_frameTimestamps[0] - m_timeStampFirstKey == 0) // bug
 		{
 			log_debug("KATHREIN BUG detected");
 			continue;
