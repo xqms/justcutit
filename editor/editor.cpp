@@ -32,6 +32,7 @@ Editor::Editor(QWidget* parent)
  , m_frameIdx(0)
  , m_headFrame(0)
  , m_cutPointModel(&m_cutPoints)
+ , m_timeFudge(0)
 {
 	m_ui = new Ui_Editor;
 	m_ui->setupUi(this);
@@ -324,11 +325,12 @@ float Editor::frameTime(int idx)
 void Editor::seek_time(float seconds, bool display)
 {
 	int64_t ts_rel = seconds / m_videoTimeBase;
-	int64_t ts = pts_val(m_timeStampStart + ts_rel);
+	int64_t req_ts = pts_val(m_timeStampStart + ts_rel);
+	int64_t ts = pts_val(req_ts + m_timeFudge);
 	int64_t min_ts = ts - 2.0 / m_videoTimeBase;
 	int64_t max_ts = ts;
 	
-	int64_t pts_base = av_rescale_q(ts_rel, m_videoTimeBase_q, AV_TIME_BASE_Q);
+	int64_t pts_base = av_rescale_q(ts_rel + m_timeFudge, m_videoTimeBase_q, AV_TIME_BASE_Q);
 	loff_t byte_offset = (loff_t)-1;
 	
 	// From time to time, my receiver (Kathrein UFS-910) screws up
@@ -381,6 +383,19 @@ void Editor::seek_time(float seconds, bool display)
 	
 	if(!tries)
 		QMessageBox::critical(this, tr("Error"), tr("Seeking failed, sorry."));
+	
+	int64_t diff = req_ts - m_frameTimestamps[0];
+	if(llabs(diff) > 20.0 / m_videoTimeBase)
+		log_debug("seek_time: missed destination (PTS: %'10lld) by more than 20 seconds, fudge = %'10lld", 
+			ts, m_frameTimestamps[0], diff, m_videoTimeBase * diff, m_timeFudge
+		);
+	
+	m_timeFudge += diff;
+	if(llabs(m_timeFudge) > 10.0 / m_videoTimeBase)
+	{
+		log_debug("Resetting time fudge value");
+		m_timeFudge = 0;
+	}
 	
 	if(display)
 		displayCurrentFrame();

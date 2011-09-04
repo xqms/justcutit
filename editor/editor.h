@@ -88,6 +88,8 @@ class Editor : public QWidget
 		
 		IndexFile* m_indexFile;
 		
+		int64_t m_timeFudge;
+		
 		void readFrame(bool needKeyFrame = false);
 		void displayCurrentFrame();
 		float frameTime(int idx = -1);

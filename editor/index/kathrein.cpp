@@ -146,7 +146,7 @@ loff_t KathreinIndexFile::bytePositionForPTS(int64_t pts)
 	
 	// Seek a little before the actual point, so that the first keyframe is
 	// okay.
-	cmp -= 14;
+	cmp -= 1;
 	if(cmp < 0)
 		cmp = 0;
 	
