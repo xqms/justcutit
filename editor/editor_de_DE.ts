@@ -133,16 +133,25 @@
     </message>
     <message>
         <location filename="editor.ui" line="304"/>
-        <source>Last frame before</source>
-        <translation>Letztes Bild vor</translation>
+        <source>Last frame before
+(or end of movie)</source>
+        <oldsource>Last frame before</oldsource>
+        <translation>Letztes Bild vor
+(oder Filmende)</translation>
     </message>
     <message>
-        <location filename="editor.ui" line="318"/>
+        <location filename="editor.ui" line="319"/>
+        <source>First frame after
+(or begin of movie)</source>
+        <translation>Erstes Bild nach
+(oder Filmbeginn)</translation>
+    </message>
+    <message>
         <source>First frame after</source>
-        <translation>Erstes Bild nach</translation>
+        <translation type="obsolete">Erstes Bild nach</translation>
     </message>
     <message>
-        <location filename="editor.ui" line="347"/>
+        <location filename="editor.ui" line="349"/>
         <source>Proceed</source>
         <translation>Fortfahren</translation>
     </message>

@@ -301,7 +301,8 @@
           <item row="0" column="0">
            <widget class="QToolButton" name="cutOutButton">
             <property name="text">
-             <string>Last frame before</string>
+             <string>Last frame before
+(or end of movie)</string>
             </property>
             <property name="icon">
              <iconset>
@@ -315,7 +316,8 @@
           <item row="1" column="0">
            <widget class="QToolButton" name="cutInButton">
             <property name="text">
-             <string>First frame after</string>
+             <string>First frame after
+(or begin of movie)</string>
             </property>
             <property name="icon">
              <iconset>
