@@ -712,20 +712,6 @@ void Editor::cut_deletePoint()
 	m_cutPointModel.removeRow(idx.row());
 }
 
-void Editor::proceedTo(const QString& filename)
-{
-	m_proceedTo = filename;
-	m_ui->proceedButton->setVisible(true);
-}
-
-void Editor::proceed()
-{
-	if(cut_saveList(m_proceedTo))
-	{
-		qApp->exit(10);
-	}
-}
-
 int64_t Editor::pts_val(int64_t value) const
 {
 	const int64_t mask = 0xFFFFFFFFFFFFFFFFLL >> (64 - m_stream->streams[m_videoID]->pts_wrap_bits);
