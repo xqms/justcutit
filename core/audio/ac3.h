@@ -18,7 +18,8 @@ class AC3 : public StreamHandler
 		const CutPoint* m_nc;
 		bool m_cutout;
 		
-		int16_t *m_sample_buf;
+		int16_t *m_cutout_buf;
+		int16_t *m_cutin_buf;
 		int m_saved_samples;
 };
 

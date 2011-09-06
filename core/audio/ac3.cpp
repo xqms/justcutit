@@ -7,11 +7,13 @@ extern "C"
 {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/mem.h>
 }
 
 #define DEBUG 1
 #define LOG_PREFIX "[AC3]"
 #include <common/log.h>
+#include <string.h>
 
 const int BUFSIZE = 10 * 1024 * 1024;
 
@@ -38,6 +40,8 @@ AC3::AC3(AVStream* stream): StreamHandler(stream)
 
 AC3::~AC3()
 {
+	av_free(m_cutout_buf);
+	av_free(m_cutin_buf);
 }
 
 int AC3::init()
@@ -70,8 +74,9 @@ int AC3::init()
 		return error("Could not open encoder");
 	
 	// Allocate sample buffer
-	m_sample_buf = (int16_t*)av_malloc(BUFSIZE);
-	if(!m_sample_buf)
+	m_cutout_buf = (int16_t*)av_malloc(BUFSIZE);
+	m_cutin_buf = (int16_t*)av_malloc(BUFSIZE);
+	if(!m_cutout_buf || !m_cutin_buf)
 		return error("Could not allocate sample buffer");
 	
 	m_nc = cutList().nextCutPoint(0);
@@ -92,7 +97,7 @@ int AC3::handlePacket(AVPacket* packet)
 		log_debug("%'10lld: Packet across the cut-out point", current_time);
 		
 		int frame_size = BUFSIZE;
-		if(avcodec_decode_audio3(stream()->codec, m_sample_buf, &frame_size, packet) < 0)
+		if(avcodec_decode_audio3(stream()->codec, m_cutout_buf, &frame_size, packet) < 0)
 			return error("Could not decode audio stream");
 		
 		int64_t total_samples = frame_size / sizeof(int16_t);
@@ -103,16 +108,7 @@ int AC3::handlePacket(AVPacket* packet)
 		
 		m_saved_samples = needed_samples;
 		
-		log_debug("previous frame size: %d", outputStream()->codec->frame_size);
-		outputStream()->codec->frame_size = needed_samples / outputStream()->codec->channels;
-		log_debug("new frame size: %d", outputStream()->codec->frame_size);
-		int bytes = avcodec_encode_audio(outputStream()->codec, packet->data, packet->size, m_sample_buf);
-		
-		if(bytes < 0)
-			return error("Could not encode audio frame");
-		
-		packet->size = bytes;
-		packet->duration = needed_time;
+		return 0;
 	}
 	
 	if(m_nc && current_time + packet->duration > m_nc->time
@@ -122,7 +118,7 @@ int AC3::handlePacket(AVPacket* packet)
 		log_debug("%'10lld: Packet across cut-in point", current_time);
 		
 		int frame_size = BUFSIZE;
-		if(avcodec_decode_audio3(stream()->codec, m_sample_buf, &frame_size, packet) < 0)
+		if(avcodec_decode_audio3(stream()->codec, m_cutin_buf, &frame_size, packet) < 0)
 			return error("Could not decode audio stream");
 		
 		int64_t total_samples = frame_size / sizeof(int16_t);
@@ -132,21 +128,27 @@ int AC3::handlePacket(AVPacket* packet)
 		int64_t needed_samples = total_samples - sample_off;
 		
 		log_debug("%'10lld: taking %lld of %lld samples", current_time, needed_samples, total_samples);
+		memcpy(m_cutin_buf, m_cutout_buf, sample_off);
 		
-		log_debug("previous frame size: %d", outputStream()->codec->frame_size);
-		outputStream()->codec->frame_size = needed_samples / outputStream()->codec->channels;
-		log_debug("new frame size: %d", outputStream()->codec->frame_size);
-		int bytes = avcodec_encode_audio(outputStream()->codec, packet->data, packet->size, m_sample_buf + sample_off);
+		if(sample_off < m_saved_samples)
+			log_warning("Dropping %lld samples to preserve packet flow",
+				m_saved_samples - sample_off
+			);
+		else
+		{
+			log_warning("Inserting %lld silence samples to preserve packet flow",
+				sample_off - m_saved_samples
+			);
+			for(int i = m_saved_samples; i < sample_off; ++i)
+				m_cutin_buf[i] = 0;
+		}
+		
+		int bytes = avcodec_encode_audio(outputStream()->codec, packet->data, packet->size, m_cutin_buf);
 		
 		if(bytes < 0)
 			return error("Could not encode audio frame");
 		
-// 		packet->size = bytes;
-// 		packet->pts = m_nc->time;
-// 		packet->duration = needed_time;
-		
-		
-		return 0;
+		packet->size = bytes;
 	}
 	
 	if(m_nc && current_time > m_nc->time
