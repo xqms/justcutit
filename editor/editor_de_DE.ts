@@ -168,9 +168,9 @@
     <message>
         <location filename="editor.cpp" line="385"/>
         <location filename="editor.cpp" line="411"/>
-        <location filename="editor.cpp" line="595"/>
-        <location filename="editor.cpp" line="601"/>
-        <location filename="editor.cpp" line="672"/>
+        <location filename="editor.cpp" line="604"/>
+        <location filename="editor.cpp" line="610"/>
+        <location filename="editor.cpp" line="684"/>
         <source>Error</source>
         <translation>Fehler</translation>
     </message>
@@ -185,29 +185,29 @@
         <translation>Genaue Positionierung fehlgeschlagen.</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="584"/>
-        <location filename="editor.cpp" line="660"/>
+        <location filename="editor.cpp" line="593"/>
+        <location filename="editor.cpp" line="672"/>
         <source>Open cutlist</source>
         <translation>Schnittliste öffnen</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="586"/>
-        <location filename="editor.cpp" line="662"/>
+        <location filename="editor.cpp" line="595"/>
+        <location filename="editor.cpp" line="674"/>
         <source>Cutlists (*.cut)</source>
         <translation>Schnittlisten (*.cut)</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="595"/>
+        <location filename="editor.cpp" line="604"/>
         <source>Could not open cutlist file</source>
         <translation>Fehler beim Öffnen der Schnittliste</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="601"/>
+        <location filename="editor.cpp" line="610"/>
         <source>Cutlist file is damaged</source>
         <translation>Schnittlisten-Datei ist korrupt</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="672"/>
+        <location filename="editor.cpp" line="684"/>
         <source>Could not open output file</source>
         <translation>Fehler beim Öffnen der Ausgabedatei</translation>
     </message>
