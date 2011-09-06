@@ -54,6 +54,7 @@ class GLDisplay : public QGLWidget
 		int m_w;
 		int m_h;
 		float m_aspectRatio;
+		bool m_updateTextures;
 		
 		QGLShaderProgram m_yuvShader;
 		

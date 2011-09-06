@@ -11,6 +11,7 @@ GLDisplay::GLDisplay(QWidget* parent)
  , m_frame(0)
  , m_w(0)
  , m_h(0)
+ , m_updateTextures(false)
 {
 	setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 }
@@ -78,32 +79,7 @@ void GLDisplay::setSize(int w, int h, float aspectRatio)
 void GLDisplay::paintFrame(AVFrame* frame)
 {
 	m_frame = frame;
-	
-	makeCurrent();
-	
-	// YUV420 to RGB conversion is done on the GPU using
-	// a fragment shader. We just have to extract the
-	// Y, U, V images from the YUV420 input.
-	
-	for(int i = 0; i < 3; ++i)
-	{
-		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(GL_TEXTURE_2D, m_gl_textures[i]);
-		
-		glTexImage2D(
-			GL_TEXTURE_2D, // target
-			0, // level
-			1, // type
-			frame->linesize[i], // width
-			(i == 0) ? m_h : m_h/2,
-			0, // border
-			GL_LUMINANCE,
-			GL_UNSIGNED_BYTE,
-			m_frame->data[i]
-		);
-	}
-	
-	doneCurrent();
+	m_updateTextures = true;
 	
 	repaint();
 }
@@ -119,6 +95,33 @@ void GLDisplay::paintGL()
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		return;
+	}
+	
+	if(m_updateTextures)
+	{
+		// YUV420 to RGB conversion is done on the GPU using
+		// a fragment shader. We just have to extract the
+		// Y, U, V images from the YUV420 input.
+		
+		for(int i = 0; i < 3; ++i)
+		{
+			glActiveTexture(GL_TEXTURE0 + i);
+			glBindTexture(GL_TEXTURE_2D, m_gl_textures[i]);
+			
+			glTexImage2D(
+				GL_TEXTURE_2D, // target
+				0, // level
+				1, // type
+				m_frame->linesize[i], // width
+				(i == 0) ? m_h : m_h/2,
+				0, // border
+				GL_LUMINANCE,
+				GL_UNSIGNED_BYTE,
+				m_frame->data[i]
+			);
+		}
+		
+		m_updateTextures = false;
 	}
 	
 	GLfloat points[] = {
