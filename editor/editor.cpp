@@ -543,6 +543,9 @@ void Editor::cut_cut(CutPoint::Direction dir)
 		w, h
 	);
 	
+	if(dir == CutPoint::CUT_OUT)
+		seek_nextFrame();
+	
 	int64_t pts = av_rescale_q(
 		pts_val(m_frameTimestamps[m_frameIdx] - m_timeStampStart),
 		m_videoTimeBase_q,
@@ -552,6 +555,10 @@ void Editor::cut_cut(CutPoint::Direction dir)
 	int num = m_cutPoints.addCutPoint(frameTime(), dir, frame, pts);
 	QModelIndex idx = m_cutPointModel.idxForNum(num);
 	m_ui->cutPointView->setCurrentIndex(idx);
+	
+	if(dir == CutPoint::CUT_OUT)
+		seek_prevFrame();
+	
 	cut_pointActivated(idx);
 }
 
@@ -572,8 +579,10 @@ void Editor::cut_pointActivated(QModelIndex idx)
 	m_ui->cutVideoWidget->paintFrame(point->img);
 	if(fabs(frameTime() - point->time) > 0.005)
 	{
-		seek_timeExactBefore(point->time);
-		seek_nextFrame();
+		if(point->direction == CutPoint::CUT_OUT)
+			seek_timeExactBefore(point->time);
+		else
+			seek_timeExact(point->time);
 	}
 }
 
@@ -621,7 +630,10 @@ void Editor::cut_openList()
 		
 		log_debug("CutPoint %d has stream PTS %10lld", i, stream_pts);
 		
-		seek_timeExact(p.time, false);
+		if(p.direction == CutPoint::CUT_OUT)
+			seek_timeExactBefore(p.time, false);
+		else
+			seek_timeExact(p.time, false);
 		
 		p.img = avcodec_alloc_frame();
 		avpicture_fill(

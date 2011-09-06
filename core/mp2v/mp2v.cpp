@@ -131,17 +131,18 @@ int MP2V::handlePacket(AVPacket* packet)
 			if(gotFrame && packet->flags & AV_PKT_FLAG_KEY)
 				m_encoding = true;
 			
-			if(gotFrame && m_nc && packet->dts > m_nc->time)
+			if(gotFrame && m_nc && packet->dts >= m_nc->time)
 			{
 				m_encoding = false;
 				m_decoding = false;
 				
 				m_currentIsCutout = true;
 				
+				int current_time = m_nc->time;
 				m_nc = cutList().nextCutPoint(packet->dts);
 				
 				if(m_nc)
-					setTotalCutout(m_nc->time - (packet->dts - totalCutout()));
+					setTotalCutout(m_nc->time - (current_time - totalCutout()));
 				else
 					setActive(false); // last cutpoint reached
 				
