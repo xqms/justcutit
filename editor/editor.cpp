@@ -10,6 +10,7 @@
 #include <QtGui/QImage>
 #include <QtGui/QFileDialog>
 #include <QtGui/QMessageBox>
+#include <QtGui/QCloseEvent>
 
 #include "ui_editor.h"
 #include "gldisplay.h"
@@ -32,8 +33,11 @@ Editor::Editor(QWidget* parent)
  , m_frameIdx(0)
  , m_headFrame(0)
  , m_cutPointModel(&m_cutPoints)
+ , m_indexFile(0)
  , m_timeFudge(0)
 {
+	setWindowFlags(Qt::Window);
+	
 	m_ui = new Ui_Editor;
 	m_ui->setupUi(this);
 	
@@ -111,6 +115,9 @@ int Editor::loadFile(const QString& filename)
 	if(m_filename.isNull())
 		return 1;
 	
+	// Allowed to be called repeatedly
+	av_register_all();
+	
 // 	m_stream = avformat_alloc_context();
 // 	m_stream->pb = io_http_create(filename.toAscii().constData());
 // 	m_stream = 0;
@@ -123,7 +130,8 @@ int Editor::loadFile(const QString& filename)
 	{
 		m_stream = 0;
 		if(avformat_open_input(&m_stream, m_filename.toAscii().constData(), NULL, NULL) != 0)
-			return error("Could not open input stream");
+			return error("Could not open input stream '%s'",
+				m_filename.toAscii().constData());
 		
 		if(avformat_find_stream_info(m_stream, NULL) < 0)
 			return error("Could not find stream information");
@@ -206,6 +214,8 @@ void Editor::readFrame(bool needKeyFrame)
 	AVFrame frame;
 	int frameFinished;
 	bool gotKeyFramePacket = false;
+	
+	avcodec_get_frame_defaults(&frame);
 	
 	while(av_read_frame(m_stream, &packet) == 0)
 	{
@@ -331,7 +341,6 @@ void Editor::seek_time(float seconds, bool display)
 	int64_t max_ts = ts;
 	
 	int64_t pts_base = av_rescale_q(ts_rel + m_timeFudge, m_videoTimeBase_q, AV_TIME_BASE_Q);
-	loff_t byte_offset = (loff_t)-1;
 	
 	// From time to time, my receiver (Kathrein UFS-910) screws up
 	// and gives me the start of the stream instead of the requested
@@ -340,6 +349,8 @@ void Editor::seek_time(float seconds, bool display)
 	int tries;
 	for(tries = 5; tries > 0; --tries)
 	{
+		loff_t byte_offset = (loff_t)-1;
+		
 		avcodec_flush_buffers(m_videoCodecCtx);
 		
 		// If we got an index file, use it
@@ -359,7 +370,7 @@ void Editor::seek_time(float seconds, bool display)
 		// Fallback to binary search
 		if(byte_offset == (loff_t)-1)
 		{
-			log_debug("Seeking to pts %'10lld\n", ts);
+			log_debug("Seeking to pts %'10lld", ts);
 			if(avformat_seek_file(m_stream, m_videoID, min_ts, ts, max_ts, 0) < 0)
 			{
 				error("could not seek");
@@ -719,6 +730,13 @@ int64_t Editor::pts_val(int64_t value) const
 {
 	const int64_t mask = 0xFFFFFFFFFFFFFFFFLL >> (64 - m_stream->streams[m_videoID]->pts_wrap_bits);
 	return value & mask;
+}
+
+void Editor::closeEvent(QCloseEvent* ev)
+{
+	QWidget::closeEvent(ev);
+	if(ev->isAccepted())
+		emit closed();
 }
 
 #include "editor.moc"

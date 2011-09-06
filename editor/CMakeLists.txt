@@ -34,9 +34,8 @@ qt4_create_translation(LANG_SRCS editor_de_DE.ts
 	editor.ui
 )
 
-add_executable(justcutit_editor
+set(sources
 	${uifiles}
-	main.cpp
 	editor.cpp
 	gldisplay.cpp
 	io_http.cpp
@@ -46,6 +45,11 @@ add_executable(justcutit_editor
 	indexfile.cpp
 	index/kathrein.cpp
 	${LANG_SRCS}
+)
+
+# LIBRARY
+add_library(justcutit_editor SHARED
+	${sources}
 )
 
 target_link_libraries(justcutit_editor
@@ -58,6 +62,19 @@ target_link_libraries(justcutit_editor
 	${ZLIB_LIBRARIES}
 	${CMAKE_THREAD_LIBS_INIT}
 	${WIN32_LIBS}
+)
+
+# EXECUTABLE
+add_executable(justcutit_editor-bin
+	main.cpp
+)
+
+set_target_properties(justcutit_editor-bin PROPERTIES
+	OUTPUT_NAME justcutit_editor
+)
+
+target_link_libraries(justcutit_editor-bin
+	justcutit_editor
 )
 
 add_subdirectory(icons)

@@ -61,6 +61,10 @@ class Editor : public QWidget
 		bool cut_saveList(const QString& filename = QString::null);
 		
 		void proceed();
+	signals:
+		void closed();
+	protected:
+		virtual void closeEvent(QCloseEvent* ev);
 	private:
 		Ui_Editor* m_ui;
 		
