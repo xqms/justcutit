@@ -1,16 +1,16 @@
-// AC3 audio stream handler
+// Generic audio stream handler
 // Author: Max Schwarz <Max@x-quadraht.de>
 
-#ifndef AC3_H
-#define AC3_H
+#ifndef GENERICAUDIO_H
+#define GENERICAUDIO_H
 
 #include "../streamhandler.h"
 
-class AC3 : public StreamHandler
+class GenericAudio : public StreamHandler
 {
 	public:
-		AC3(AVStream* stream);
-		virtual ~AC3();
+		GenericAudio(AVStream* stream);
+		virtual ~GenericAudio();
 		
 		virtual int init();
 		virtual int handlePacket(AVPacket* packet);
@@ -23,4 +23,4 @@ class AC3 : public StreamHandler
 		int m_saved_samples;
 };
 
-#endif // AC3_H
+#endif // GENERICAUDIO_H

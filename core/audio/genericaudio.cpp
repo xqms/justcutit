@@ -1,7 +1,7 @@
-// AC3 audio stream handler
+// Generic audio stream handler
 // Author: Max Schwarz <Max@x-quadraht.de>
 
-#include "ac3.h"
+#include "genericaudio.h"
 
 extern "C"
 {
@@ -11,7 +11,7 @@ extern "C"
 }
 
 #define DEBUG 1
-#define LOG_PREFIX "[AC3]"
+#define LOG_PREFIX "[AUDIO]"
 #include <common/log.h>
 #include <string.h>
 
@@ -34,17 +34,17 @@ static AVCodec* findCodec(CodecID id, SampleFormat fmt)
 	return 0;
 }
 
-AC3::AC3(AVStream* stream): StreamHandler(stream)
+GenericAudio::GenericAudio(AVStream* stream): StreamHandler(stream)
 {
 }
 
-AC3::~AC3()
+GenericAudio::~GenericAudio()
 {
 	av_free(m_cutout_buf);
 	av_free(m_cutin_buf);
 }
 
-int AC3::init()
+int GenericAudio::init()
 {
 	AVCodec* codec = avcodec_find_decoder(stream()->codec->codec_id);
 	
@@ -85,7 +85,7 @@ int AC3::init()
 	return 0;
 }
 
-int AC3::handlePacket(AVPacket* packet)
+int GenericAudio::handlePacket(AVPacket* packet)
 {
 	packet->pts = pts_rel(packet->pts);
 	int64_t current_time = packet->pts;
@@ -186,5 +186,5 @@ int AC3::handlePacket(AVPacket* packet)
 	return 0;
 }
 
-REGISTER_STREAM_HANDLER(CODEC_ID_AC3, AC3)
+REGISTER_STREAM_HANDLER(CODEC_ID_AC3, GenericAudio)
 
