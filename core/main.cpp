@@ -30,10 +30,13 @@ typedef std::map<int, StreamHandler*> StreamMap;
 
 void usage(FILE* dest)
 {
-	fprintf(dest, "Usage: justcutit [-s <split size in MiB>] <file> <cutlist> <output-file>\n"
+	fprintf(dest, "Usage: justcutit [options] <file> <cutlist> <output-file>\n"
 		"\n"
-		"If you use the -s option, you need to provide a template string like "
-		"\"output_%%d.ts\" as output-file.\n"
+		"Options:\n"
+		"  -s, --size COUNT  Split output files after COUNT MiB. output-file\n"
+		"                    needs to be a template like \"output_%%d.ts\"\n"
+		"  -v, --verbose     Provide progress info more often\""
+		"  -a, --audio TYPE  Take audio stream of type TYPE (ffmpeg decoder name)\n"
 	);
 }
 
@@ -78,7 +81,8 @@ bool readCutlist(FILE* file, CutPointList* dest)
 	return true;
 }
 
-bool setupHandlers(AVFormatContext* input, AVFormatContext* output, const CutPointList& cutlist, StreamMap* map)
+bool setupHandlers(AVFormatContext* input, AVFormatContext* output,
+	const CutPointList& cutlist, StreamMap* map, const char* audio_decoder = 0)
 {
 	StreamHandlerFactory factory;
 	
@@ -95,6 +99,16 @@ bool setupHandlers(AVFormatContext* input, AVFormatContext* output, const CutPoi
 		for(int j = 0; j < program->nb_stream_indexes; ++j)
 		{
 			AVStream* istream = input->streams[program->stream_index[j]];
+			
+			if(istream->codec->codec_type == AVMEDIA_TYPE_AUDIO && audio_decoder)
+			{
+				AVCodec* codec = avcodec_find_decoder(istream->codec->codec_id);
+				if(!codec || strcmp(codec->name, audio_decoder) != 0)
+				{
+					istream->discard = AVDISCARD_ALL;
+					continue;
+				}
+			}
 			
 			StreamHandler* handler = factory.createHandlerForStream(istream);
 			
@@ -152,6 +166,7 @@ int main(int argc, char** argv)
 	int last_percent_done = 0;
 	uint64_t split_size = 0;
 	bool verbose = false;
+	const char* audio_decoder = 0;
 	
 	av_register_all();
 	
@@ -162,10 +177,11 @@ int main(int argc, char** argv)
 			{"split", required_argument, 0, 's'},
 			{"verbose", no_argument, 0, 'v'},
 			{"help", no_argument, 0, 'h'},
+			{"audio", no_argument, 0, 'a'},
 			{0, 0, 0, 0}
 		};
 		
-		int c = getopt_long(argc, argv, "hs:v", long_options, &option_index);
+		int c = getopt_long(argc, argv, "hs:a:v", long_options, &option_index);
 		
 		if(c == -1)
 			break;
@@ -180,6 +196,9 @@ int main(int argc, char** argv)
 				break;
 			case 'v':
 				verbose = true;
+				break;
+			case 'a':
+				audio_decoder = optarg;
 				break;
 			default:
 				usage(stderr);
@@ -262,7 +281,7 @@ int main(int argc, char** argv)
 	
 	output_ctx->oformat->flags |= AVFMT_TS_NONSTRICT;
 	
-	if(!setupHandlers(ctx, output_ctx, cutlist, &stream_mapping))
+	if(!setupHandlers(ctx, output_ctx, cutlist, &stream_mapping, audio_decoder))
 		return 1;
 	
 	printf(" [+] Output streams:\n");
