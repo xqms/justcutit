@@ -109,8 +109,8 @@ class StreamHandlerFactory
 };
 
 #define REGISTER_STREAM_HANDLER(codecID, name) \
-	StreamHandler* create ## name (AVStream* stream) \
+	StreamHandler* create ## name ## codecID (AVStream* stream) \
 	{ return new name (stream); } \
-	StreamHandlerFactory::Registerer reg ## name(codecID, create ## name);
+	StreamHandlerFactory::Registerer reg ## name ## codecID (codecID, create ## name ## codecID);
 
 #endif // STREAMHANDLER_H

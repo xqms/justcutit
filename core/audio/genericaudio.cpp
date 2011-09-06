@@ -187,4 +187,5 @@ int GenericAudio::handlePacket(AVPacket* packet)
 }
 
 REGISTER_STREAM_HANDLER(CODEC_ID_AC3, GenericAudio)
+REGISTER_STREAM_HANDLER(CODEC_ID_MP2, GenericAudio)
 
