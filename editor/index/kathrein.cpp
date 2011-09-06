@@ -63,14 +63,15 @@ bool KathreinIndexFile::detect(AVFormatContext*,
 	
 	free(filename);
 	
-	bool ret = f;
-	
-	if(!ret)
+	if(!f)
+	{
 		log_debug_perror("Could not open kathrein index file");
+		return false;
+	}
 	
 	fclose(f);
 	
-	return ret;
+	return true;
 }
 
 bool KathreinIndexFile::open(const char* filename, const char* stream_filename)
