@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 
 extern "C"
 {
@@ -109,9 +110,10 @@ bool KathreinIndexFile::open(const char* filename, const char* stream_filename)
 		return false;
 	}
 	
-	if(fread((void*)m_table, sizeof(TableEntry), m_count, f) != m_count)
+	int ret = fread((void*)m_table, sizeof(TableEntry), m_count, f);
+	if(ret != m_count)
 	{
-		log_debug_perror("Could not read table");
+		log_debug_perror("Could not read table, read %d of %d bytes", ret, m_count);
 		return false;
 	}
 	
