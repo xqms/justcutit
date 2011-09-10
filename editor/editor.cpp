@@ -133,7 +133,9 @@ int Editor::loadFile(const QString& filename)
 		if(avformat_find_stream_info(m_stream, NULL) < 0)
 			return error("Could not find stream information");
 		
-		if(m_stream->duration < AV_TIME_BASE * 10)
+		if(m_stream->duration < AV_TIME_BASE * 10
+			|| m_stream->duration > 12LL * 60 * 60 * AV_TIME_BASE
+			|| m_stream->nb_streams > 6)
 		{
 			avformat_free_context(m_stream);
 			continue;
