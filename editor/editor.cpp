@@ -23,11 +23,6 @@
 
 #include <stdio.h>
 
-static QIcon getIcon(const char* name)
-{
-	return QIcon::fromTheme(name, QIcon(QString("icons/%1.png").arg(name)));
-}
-
 Editor::Editor(QWidget* parent)
  : QWidget(parent)
  , m_frameIdx(0)
@@ -66,13 +61,10 @@ Editor::Editor(QWidget* parent)
 	m_ui->cutlistOpenButton->setIcon(getIcon("document-open"));
 	m_ui->cutlistSaveButton->setIcon(getIcon("document-save"));
 	m_ui->cutlistDelItemButton->setIcon(getIcon("list-remove"));
-	m_ui->proceedButton->setIcon(getIcon("system-run"));
-	m_ui->proceedButton->setVisible(false);
 	
 	connect(m_ui->cutlistOpenButton, SIGNAL(clicked()), SLOT(cut_openList()));
 	connect(m_ui->cutlistSaveButton, SIGNAL(clicked()), SLOT(cut_saveList()));
 	connect(m_ui->cutlistDelItemButton, SIGNAL(clicked()), SLOT(cut_deletePoint()));
-	connect(m_ui->proceedButton, SIGNAL(clicked()), SLOT(proceed()));
 	
 	m_ui->timeSlider->setList(&m_cutPoints);
 	
@@ -83,6 +75,11 @@ Editor::~Editor()
 {
 	for(int i = 0; i < NUM_FRAMES; ++i)
 		av_free(m_frameBuffer[i]);
+}
+
+QIcon Editor::getIcon(const char* name)
+{
+	return QIcon::fromTheme(name, QIcon(QString("icons/%1.png").arg(name)));
 }
 
 void Editor::takeIndexFile(IndexFile* file)
@@ -723,6 +720,11 @@ void Editor::closeEvent(QCloseEvent* ev)
 	QWidget::closeEvent(ev);
 	if(ev->isAccepted())
 		emit closed();
+}
+
+QWidget* Editor::extraSpaceWidget()
+{
+	return m_ui->extraSpaceWidget;
 }
 
 #include "editor.moc"

@@ -5,6 +5,7 @@
 #define EDITOR_H
 
 #include <QtGui/QWidget>
+#include <QtGui/QIcon>
 
 #include "cutpointlist.h"
 #include "cutpointmodel.h"
@@ -61,6 +62,8 @@ class Editor : public QWidget
 		void closed();
 	protected:
 		virtual void closeEvent(QCloseEvent* ev);
+		QWidget* extraSpaceWidget();
+		QIcon getIcon(const char* name);
 	private:
 		Ui_Editor* m_ui;
 		
