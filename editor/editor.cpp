@@ -670,6 +670,11 @@ void Editor::cut_openList()
 	}
 }
 
+void Editor::cut_saveList(QTextStream* dest)
+{
+	m_cutPoints.writeTo(dest);
+}
+
 bool Editor::cut_saveList(const QString& filename)
 {
 	QString f = filename;
@@ -693,7 +698,9 @@ bool Editor::cut_saveList(const QString& filename)
 		return false;
 	}
 	
-	m_cutPoints.writeTo(&file);
+	QTextStream stream(&file);
+	
+	cut_saveList(&stream);
 	
 	file.close();
 	

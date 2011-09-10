@@ -77,12 +77,10 @@ bool CutPointList::readFrom(QIODevice* device)
 	return true;
 }
 
-void CutPointList::writeTo(QIODevice* device) const
+void CutPointList::writeTo(QTextStream* stream) const
 {
-	QTextStream stream(device);
-	
 	foreach(const CutPoint& p, m_list)
-		stream << p << "\n";
+		*stream << p << "\n";
 }
 
 QTextStream& operator<<(QTextStream& stream, const CutPoint& point)

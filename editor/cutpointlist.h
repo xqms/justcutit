@@ -57,7 +57,7 @@ class CutPointList : public QObject
 		
 		CutPoint& operator[](int idx);
 		
-		void writeTo(QIODevice* device) const;
+		void writeTo(QTextStream* stream) const;
 		bool readFrom(QIODevice* device);
 	signals:
 		void aboutToInsert(int idx);

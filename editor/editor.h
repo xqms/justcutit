@@ -58,6 +58,7 @@ class Editor : public QWidget
 		void cut_deletePoint();
 		void cut_openList();
 		bool cut_saveList(const QString& filename = QString::null);
+		void cut_saveList(QTextStream* dest);
 	signals:
 		void closed();
 	protected:
