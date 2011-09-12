@@ -224,7 +224,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 	
-	if(avformat_find_stream_info(ctx, 0) != 0)
+	if(avformat_find_stream_info(ctx, 0) < 0)
 	{
 		fprintf(stderr, "Fatal: Could not find stream information\n");
 		return 1;
