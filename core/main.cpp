@@ -167,6 +167,7 @@ int main(int argc, char** argv)
 	uint64_t split_size = 0;
 	bool verbose = false;
 	const char* audio_decoder = 0;
+	int exit_code = 0;
 	
 	av_register_all();
 	
@@ -311,7 +312,11 @@ int main(int argc, char** argv)
 		}
 		
 		if(it->second->handlePacket(&packet) != 0)
-			return 1;
+		{
+			av_free_packet(&packet);
+			exit_code = 2;
+			break;
+		}
 		
 		av_free_packet(&packet);
 		
@@ -333,4 +338,6 @@ int main(int argc, char** argv)
 	else
 		io_split_close(output_ctx->pb);
 	avformat_free_context(output_ctx);
+	
+	return exit_code;
 }
