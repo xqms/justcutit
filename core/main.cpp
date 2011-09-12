@@ -124,7 +124,7 @@ bool setupHandlers(AVFormatContext* input, AVFormatContext* output,
 			// Register with program
 			oprogram->nb_stream_indexes++;
 			oprogram->stream_index = (unsigned int*)av_realloc(
-				oprogram->stream_index, oprogram->nb_stream_indexes
+				oprogram->stream_index, oprogram->nb_stream_indexes * sizeof(*oprogram->stream_index)
 			);
 			oprogram->stream_index[oprogram->nb_stream_indexes-1] = ostream->index;
 			
