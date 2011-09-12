@@ -10,6 +10,7 @@ extern "C"
 {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libswscale/swscale.h>
 }
 
 // Debug - log packet information near cutpoints
@@ -68,7 +69,42 @@ static bool bufferContainsPTS(const MP2V::PacketBuffer& buffer, int64_t pts)
 	return false;
 }
 
-
+static void writePPM(const char* filename, AVPicture* src, PixelFormat src_fmt, int w, int h)
+{
+	AVFrame* out = avcodec_alloc_frame();
+	uint8_t* buf = (uint8_t*)av_malloc(sizeof(uint8_t) * 1024 * 1024 * 10);
+	
+	avpicture_fill((AVPicture*)out,
+		buf,
+		PIX_FMT_RGB24,
+		w, h
+	);
+	
+	SwsContext* sws;
+	
+	sws = sws_getContext(
+		w, h, src_fmt,
+		w, h, PIX_FMT_RGB24,
+		SWS_BICUBIC, NULL, NULL, NULL
+	);
+	
+	sws_scale(sws,
+		src->data, src->linesize,
+		0, h,
+		out->data, out->linesize
+	);
+	
+	FILE* f = fopen(filename, "wb");
+	fprintf(f, "P6\n%d %d\n255\n", w, h);
+	
+	for(int y = 0; y < h; ++y)
+		fwrite(out->data[0] + y * out->linesize[0], 1, w * 3, f);
+	
+	fclose(f);
+	
+	av_free(out);
+	av_free(buf);
+}
 
 MP2V::MP2V(AVStream* stream)
  : StreamHandler(stream)
