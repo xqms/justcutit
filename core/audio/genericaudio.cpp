@@ -10,7 +10,7 @@ extern "C"
 #include <libavutil/mem.h>
 }
 
-#define DEBUG 1
+#define DEBUG 0
 #define LOG_PREFIX "[AUDIO]"
 #include <common/log.h>
 #include <string.h>
