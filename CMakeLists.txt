@@ -26,5 +26,6 @@ add_subdirectory(core)
 
 if(NOT JUST_CORE)
 	add_subdirectory(editor)
+	add_subdirectory(utils)
 endif()
 
