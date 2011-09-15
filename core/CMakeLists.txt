@@ -1,9 +1,13 @@
 
+set(FFMPEG_PATH "" CACHE PATH "Path to ffmpeg source (needed for H.264)")
+include_directories(${FFMPEG_PATH})
+
 add_executable(justcutit
 	main.cpp
 	cutlist.cpp
 	streamhandler.cpp
 	video/mp2v.cpp
+	video/h264.cpp
 	audio/genericaudio.cpp
 	io_split.cpp
 )
