@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <errno.h>
+#include <string.h>
 
 #ifndef LOG_PREFIX
 #error LOG_PREFIX not set!
