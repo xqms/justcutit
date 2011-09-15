@@ -3,7 +3,7 @@ add_executable(justcutit
 	main.cpp
 	cutlist.cpp
 	streamhandler.cpp
-	mp2v/mp2v.cpp
+	video/mp2v.cpp
 	audio/genericaudio.cpp
 	io_split.cpp
 )

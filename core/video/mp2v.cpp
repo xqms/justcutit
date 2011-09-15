@@ -174,7 +174,7 @@ int MP2V::handlePacket(AVPacket* packet)
 				
 				m_currentIsCutout = true;
 				
-				int current_time = m_nc->time;
+				int64_t current_time = m_nc->time;
 				m_nc = cutList().nextCutPoint(packet->dts);
 				
 				if(m_nc)
