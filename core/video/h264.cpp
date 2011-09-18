@@ -184,13 +184,15 @@ int H264::init()
 	outputStream()->sample_aspect_ratio = outputStream()->codec->sample_aspect_ratio;
 	
 	AVCodecContext* ctx = outputStream()->codec;
-	ctx->bit_rate = 500 * 1024;
+	ctx->bit_rate = 3 * 500 * 1024;
 	ctx->rc_max_rate = 0;
 	ctx->rc_buffer_size = 0;
 	ctx->gop_size = 40;
 	ctx->coder_type = 1;
 	ctx->me_cmp = 1;
 	ctx->me_range = 16;
+	ctx->colorspace = AVCOL_SPC_BT709;
+	ctx->flags2 |= CODEC_FLAG2_8X8DCT;
 	
 	m_nc = cutList().nextCutPoint(0);
 	m_isCutout = m_nc->direction == CutPoint::IN;
@@ -211,6 +213,7 @@ int H264::handlePacket(AVPacket* packet)
 {
 	int gotFrame;
 	int bytes;
+	H264Context* h = (H264Context*)stream()->codec->priv_data;
 	
 	// Transform timestamps to relative timestamps
 	packet->dts = pts_rel(packet->dts);
@@ -270,6 +273,10 @@ int H264::handlePacket(AVPacket* packet)
 		m_syncPoint = packet->pts;
 		
 		log_debug("SYNC: start with keyframe packet PTS %'10lld", m_syncPoint);
+		
+		log_debug("SYNC: frame_num of first original frame is %d",
+				  h->s.current_picture_ptr->frame_num
+		);
 	}
 	
 	if(m_syncing && gotFrame && m_frame.key_frame)
@@ -293,23 +300,40 @@ int H264::handlePacket(AVPacket* packet)
 			
 			if(pts + totalCutout() >= m_syncPoint)
 			{
-				log_debug("Skipping PTS %'10lld >= sync point %'10lld", pts, m_syncPoint);
+				log_debug("SYNC: (encoder) Skipping PTS %'10lld >= sync point %'10lld",
+					pts + totalCutout(), m_syncPoint
+				);
 				continue;
 			}
 			
-			writeOutputPacket(
-				m_encodeBuffer, bytes,
-				pts
-			);
+			if(writeOutputPacket(m_encodeBuffer, bytes, pts) != 0)
+				return error("SYNC: (encoder) Could not write packet");
 		}
-		
 		avcodec_close(outputStream()->codec);
+		
+		// Flush out sync buffer
+		for(int i = 0; i < m_syncBuffer.size(); ++i)
+		{
+			AVPacket* packet = &m_syncBuffer[i];
+			if(packet->pts < m_syncPoint)
+			{
+				log_debug("SYNC: (buffer) Skipping PTS %'10lld < sync point %'10lld",
+					packet->pts, m_syncPoint
+				);
+				continue;
+			}
+			
+			if(writeInputPacket(packet) != 0)
+				return error("SYNC: (buffer) Could not write packet");
+		}
+		m_syncBuffer.clear();
+		
 		m_encoding = false;
 		m_isCutout = false;
 		m_decoding = false;
 		m_syncing = false;
 		
-		log_debug("SYNC: finished, got keyframe from decoder");
+		log_debug("SYNC: finished, got keyframe from decoder with PTS %'10lld", packet->dts);
 		
 		m_nc = cutList().nextCutPoint(packet->dts);
 	}
@@ -371,7 +395,7 @@ int H264::handlePacket(AVPacket* packet)
 			return 0;
 		}
 		
-		log_debug("COPY: packet with PTS %'10lld", packet->pts);
+// 		log_debug("COPY: packet with PTS %'10lld", packet->pts);
 		outputStream()->codec->has_b_frames = 6;
 		if(writeInputPacket(packet) != 0)
 		{
@@ -392,7 +416,7 @@ int H264::handlePacket(AVPacket* packet)
 void H264::setFrameFields(AVFrame* frame, int64_t pts)
 {
 	frame->pict_type = AV_PICTURE_TYPE_I;
-	frame->key_frame = 1;
+	frame->key_frame = 0;
 	frame->pkt_pts = AV_NOPTS_VALUE;
 	frame->pkt_dts = AV_NOPTS_VALUE;
 	frame->pts = av_rescale_q(
