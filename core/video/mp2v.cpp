@@ -111,6 +111,7 @@ MP2V::MP2V(AVStream* stream)
  , m_lastDirectPTS(0)
  , m_encoding(false)
  , m_decoding(false)
+ , m_outputErrorCount(0)
 {
 	m_startDecodeOffset = av_rescale(2, stream->time_base.den, stream->time_base.num);
 }
@@ -364,8 +365,14 @@ int MP2V::handlePacket(AVPacket* packet)
 		if(!m_currentIsCutout)
 		{
 			if(writeInputPacket(packet) != 0)
-				return error("Could not write direct input packet");
-			
+			{
+				error("Could not write direct input packet");
+				if(++m_outputErrorCount > 50)
+					return -1;
+			}
+			else
+				m_outputErrorCount = 0;
+
 			int64_t real_pts = packet->dts - totalCutout();
 			
 			if(real_pts > m_lastDirectPTS)

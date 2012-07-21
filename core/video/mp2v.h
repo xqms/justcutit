@@ -46,6 +46,8 @@ class MP2V : public StreamHandler
 		// Buffering
 		PacketBuffer m_copyPacketBuffer;
 		PacketBuffer m_encodedPacketBuffer;
+
+		int m_outputErrorCount;
 };
 
 #endif // MP2V_H
