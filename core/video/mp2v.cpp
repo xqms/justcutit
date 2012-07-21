@@ -367,16 +367,21 @@ int MP2V::handlePacket(AVPacket* packet)
 			if(writeInputPacket(packet) != 0)
 			{
 				error("Could not write direct input packet");
+				error("Last written PTS: %10lld, current DTS: %10lld",
+					  m_lastDirectPTS + totalCutout(), packet->dts
+				);
 				if(++m_outputErrorCount > 50)
 					return -1;
 			}
 			else
+			{
 				m_outputErrorCount = 0;
 
-			int64_t real_pts = packet->dts - totalCutout();
-			
-			if(real_pts > m_lastDirectPTS)
-				m_lastDirectPTS = real_pts;
+				int64_t real_pts = packet->dts - totalCutout();
+
+				if(real_pts > m_lastDirectPTS)
+					m_lastDirectPTS = real_pts;
+			}
 		}
 	}
 	

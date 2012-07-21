@@ -34,7 +34,9 @@ static AVCodec* findCodec(CodecID id, SampleFormat fmt)
 	return 0;
 }
 
-GenericAudio::GenericAudio(AVStream* stream): StreamHandler(stream)
+GenericAudio::GenericAudio(AVStream* stream)
+ : StreamHandler(stream)
+ , m_outputErrorCount(0)
 {
 }
 
@@ -180,7 +182,16 @@ int GenericAudio::handlePacket(AVPacket* packet)
 	if(!m_cutout)
 	{
 		if(writeInputPacket(packet) != 0)
-			return error("Could not write input packet");
+		{
+			if(++m_outputErrorCount > 50)
+			{
+				return error("Could not write input packet");
+			}
+		}
+		else
+		{
+			m_outputErrorCount = 0;
+		}
 	}
 	
 	return 0;

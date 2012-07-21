@@ -21,6 +21,8 @@ class GenericAudio : public StreamHandler
 		int16_t *m_cutout_buf;
 		int16_t *m_cutin_buf;
 		int m_saved_samples;
+
+		int m_outputErrorCount;
 };
 
 #endif // GENERICAUDIO_H
