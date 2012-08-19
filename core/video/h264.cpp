@@ -185,6 +185,8 @@ int H264::init()
 	avcodec_copy_context(outputStream()->codec, stream()->codec);
 	
 	outputStream()->sample_aspect_ratio = outputStream()->codec->sample_aspect_ratio;
+	outputStream()->codec->thread_type = 0;
+	outputStream()->codec->thread_count = 1;
 	
 	AVCodecContext* ctx = outputStream()->codec;
 	ctx->bit_rate = 3 * 500 * 1024;
@@ -243,7 +245,7 @@ int H264::handlePacket(AVPacket* packet)
 			return error("Could not decode packet");
 	}
 	
-	if(!m_encoding)
+	if(!m_encoding && m_nc)
 	{
 		if(m_nc->direction == CutPoint::OUT && m_nc->time < packet->dts)
 		{
@@ -258,8 +260,7 @@ int H264::handlePacket(AVPacket* packet)
 			else
 				setActive(false); // last cutpoint reached
 		}
-		
-		if(m_nc->direction == CutPoint::IN && m_nc->time <= packet->dts)
+		else if(m_nc->direction == CutPoint::IN && m_nc->time <= packet->dts)
 		{
 			m_encoding = true;
 			m_encFrameCount = 0;
@@ -270,20 +271,25 @@ int H264::handlePacket(AVPacket* packet)
 		}
 	}
 	
-	if(m_encoding && m_encFrameCount > 20 && packet->flags & AV_PKT_FLAG_KEY)
+	if(m_encoding && m_encFrameCount > 20 && packet->flags & AV_PKT_FLAG_KEY && h->s.current_picture_ptr)
 	{
 		m_syncing = true;
 		m_syncPoint = packet->pts;
 		
 		log_debug("SYNC: start with keyframe packet PTS %'10lld", m_syncPoint);
-		
-		log_debug("SYNC: frame_num of first original frame is %d",
-				  h->s.current_picture_ptr->frame_num
-		);
+// 		log_debug("SYNC: frame_num of first original frame is %d",
+// 				h->s.current_picture_ptr->frame_num
+// 		);
+	}
+
+	if(m_syncing)
+	{
+		log_debug("decode=%d, gotFrame=%d, keyframe=%d, t=%d", m_decoding, gotFrame, m_frame.key_frame, m_frame.pict_type);
 	}
 	
-	if(m_syncing && gotFrame && m_frame.key_frame)
+	if(m_syncing && gotFrame && m_frame.pict_type == 1)
 	{
+		log_debug("SYNC: Flushing out encoder");
 		// Flush out encoder
 		while(1)
 		{
