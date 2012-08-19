@@ -37,6 +37,7 @@ static AVCodec* findCodec(AVCodecID id, AVSampleFormat fmt)
 GenericAudio::GenericAudio(AVStream* stream)
  : StreamHandler(stream)
  , m_outputErrorCount(0)
+ , m_saved_samples(0)
 {
 }
 
