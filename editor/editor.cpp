@@ -167,7 +167,6 @@ int Editor::loadFile(const QString& filename)
 	
 	// Try to decode as fast as possible
 	m_videoCodecCtx->flags2 |= CODEC_FLAG2_FAST;
-	m_videoCodecCtx->flags2 |= CODEC_FLAG2_FASTPSKIP;
 	m_videoCodecCtx->skip_loop_filter = AVDISCARD_ALL;
 	
 	m_videoCodec = avcodec_find_decoder(m_videoCodecCtx->codec_id);

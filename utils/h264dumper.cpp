@@ -3,6 +3,7 @@
 
 extern "C"
 {
+#define class class_
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
@@ -15,6 +16,7 @@ extern "C"
 #undef restrict
 
 #include <libavcodec/h264.h>
+#undef class
 }
 
 #include <stdarg.h>

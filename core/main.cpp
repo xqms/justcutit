@@ -119,7 +119,8 @@ bool setupHandlers(AVFormatContext* input, AVFormatContext* output,
 				continue;
 			}
 			
-			AVStream* ostream = av_new_stream(output, istream->id);
+			AVStream* ostream = avformat_new_stream(output, 0);
+			ostream->id = istream->id;
 			
 			// Register with program
 			oprogram->nb_stream_indexes++;

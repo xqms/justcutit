@@ -20,10 +20,13 @@ extern "C"
 #include <libavcodec/dsputil.h>
 #undef restrict
 
+#define class class_
+#include <libavutil/log.h>
 #include <libavcodec/h264.h>
 #include <libavcodec/get_bits.h>
 #include <libavcodec/golomb.h>
 #include <unistd.h>
+#undef class
 }
 
 const int ENCODE_BUFSIZE = 10 * 1024 * 1024;
@@ -192,7 +195,7 @@ int H264::init()
 	ctx->me_cmp = 1;
 	ctx->me_range = 16;
 	ctx->colorspace = AVCOL_SPC_BT709;
-	ctx->flags2 |= CODEC_FLAG2_8X8DCT;
+// 	ctx->flags2 |= CODEC_FLAG2_8X8DCT;
 	
 	m_nc = cutList().nextCutPoint(0);
 	m_isCutout = m_nc->direction == CutPoint::IN;

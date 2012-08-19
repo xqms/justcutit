@@ -17,14 +17,14 @@ extern "C"
 
 const int BUFSIZE = 10 * 1024 * 1024;
 
-static AVCodec* findCodec(CodecID id, SampleFormat fmt)
+static AVCodec* findCodec(AVCodecID id, AVSampleFormat fmt)
 {
 	for(AVCodec* p = av_codec_next(0); p; p = av_codec_next(p))
 	{
-		if(p->id != id || !p->encode)
+		if(p->id != id || (!p->encode && !p->encode2))
 			continue;
 		
-		for(const SampleFormat* f = p->sample_fmts; *f != -1; ++f)
+		for(const AVSampleFormat* f = p->sample_fmts; *f != -1; ++f)
 		{
 			if(*f == fmt)
 				return p;
