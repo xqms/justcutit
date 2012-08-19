@@ -106,6 +106,8 @@ static void dump_state(H264Context* h)
 			strncat(qualifiers, "(next) ", BUFSIZE);
 		if(h->s.last_picture_ptr == p)
 			strncat(qualifiers, "(last) ", BUFSIZE);
+		if(h->s.current_picture_ptr->mmco_reset)
+			strncat(qualifiers, "(MMCO_RESET) ", BUFSIZE);
 		
 		for(int j = 0; j < 2; ++j)
 		{
@@ -154,8 +156,10 @@ static void dump_state(H264Context* h)
 		if(i != 0)
 			getc(stdin);
 		
-		log_debug("    %2d: %s",
+		log_debug("    %2d: poc_type=%d, ref_count=%d, colorspace=%d, mb_width=%d, mb_height=%d %s",
 			i,
+			s->poc_type, s->ref_frame_count, s->colorspace,
+			s->mb_width, s->mb_height,
 			(i == h->pps.sps_id) ? "(current)" : ""
 		);
 	}
