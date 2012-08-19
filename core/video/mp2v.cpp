@@ -68,7 +68,7 @@ static bool bufferContainsPTS(const MP2V::PacketBuffer& buffer, int64_t pts)
 	
 	return false;
 }
-
+/*
 static void writePPM(const char* filename, AVPicture* src, PixelFormat src_fmt, int w, int h)
 {
 	AVFrame* out = avcodec_alloc_frame();
@@ -104,7 +104,7 @@ static void writePPM(const char* filename, AVPicture* src, PixelFormat src_fmt, 
 	
 	av_free(out);
 	av_free(buf);
-}
+}*/
 
 MP2V::MP2V(AVStream* stream)
  : StreamHandler(stream)
