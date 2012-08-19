@@ -91,6 +91,8 @@ class StreamHandler
 		CutPointList m_cutlist;
 		int64_t m_totalCutout;
 		int64_t m_startTime;
+		int64_t m_lastDTS;
+		bool m_nonMonotonic;
 		bool m_active;
 };
 

@@ -8,6 +8,10 @@ extern "C"
 #include <libavformat/avformat.h>
 }
 
+#define DEBUG 0
+#define LOG_PREFIX "[STREAM]"
+#include <common/log.h>
+
 #include <map>
 
 typedef std::map<int, StreamHandler::Creator> CreatorMap;
@@ -16,6 +20,8 @@ CreatorMap* g_creatorMap;
 StreamHandler::StreamHandler(AVStream* stream)
  : m_stream(stream)
  , m_totalCutout(0)
+ , m_lastDTS(-1)
+ , m_nonMonotonic(false)
  , m_active(true)
 {
 }
@@ -51,10 +57,40 @@ void StreamHandler::setActive(bool active)
 
 int StreamHandler::writeInputPacket(AVPacket* packet)
 {
+	const int64_t MASK = 0xFFFFFFFFFFFFFFFFLL >> (64 - m_stream->pts_wrap_bits);
+	const AVRational MAX_SKIP_SECONDS = {600,1};
+	const int64_t MAX_SKIP = av_rescale_q(1, MAX_SKIP_SECONDS, m_stream->time_base);
+
 	packet->stream_index = m_ostream->index;
-	packet->dts = AV_NOPTS_VALUE;
 	packet->pts -= m_totalCutout;
-	
+
+	int64_t diff = (m_lastDTS - packet->dts) & MASK;
+
+	if(m_lastDTS != -1 && !m_nonMonotonic && packet->dts < m_lastDTS && diff < MAX_SKIP)
+	{
+		log_warning("Non-monotonic input packet detected. Starting skip at DTS %10lld (new) < %10lld (old)", packet->dts, m_lastDTS);
+		log_warning("diff is %10lld, which is greater than %ds (%10lld)", diff, MAX_SKIP_SECONDS.num, MAX_SKIP);
+		m_nonMonotonic = true;
+
+		return 0;
+	}
+
+	if(m_nonMonotonic)
+	{
+		if(packet->dts > m_lastDTS)
+		{
+			log_warning("Non-monotonic input ended with DTS %20lld", packet->dts);
+			m_nonMonotonic = false;
+		}
+		else
+			return 0;
+	}
+
+	if(packet->dts != AV_NOPTS_VALUE)
+		m_lastDTS = packet->dts;
+
+	packet->dts = AV_NOPTS_VALUE;
+
 	return av_interleaved_write_frame(m_octx, packet);
 }
 
