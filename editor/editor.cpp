@@ -135,8 +135,13 @@ int Editor::loadFile(const QString& filename)
 		
 		if(m_stream->duration < AV_TIME_BASE * 10
 			|| m_stream->duration > 12LL * 60 * 60 * AV_TIME_BASE
-			|| m_stream->nb_streams > 6)
+			|| m_stream->nb_streams > 12)
 		{
+			log_warning(
+				"Duration is %10lld seconds with %d streams",
+				m_stream->duration / AV_TIME_BASE,
+				m_stream->nb_streams
+			);
 			avformat_free_context(m_stream);
 			continue;
 		}

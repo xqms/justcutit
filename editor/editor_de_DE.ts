@@ -165,48 +165,48 @@
         <translation>TS Dateien (*.ts)</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="394"/>
-        <location filename="editor.cpp" line="420"/>
-        <location filename="editor.cpp" line="613"/>
-        <location filename="editor.cpp" line="619"/>
-        <location filename="editor.cpp" line="698"/>
+        <location filename="editor.cpp" line="399"/>
+        <location filename="editor.cpp" line="425"/>
+        <location filename="editor.cpp" line="618"/>
+        <location filename="editor.cpp" line="624"/>
+        <location filename="editor.cpp" line="703"/>
         <source>Error</source>
         <translation>Fehler</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="394"/>
+        <location filename="editor.cpp" line="399"/>
         <source>Seeking failed, sorry.</source>
         <translation>Positionierung fehlgeschlagen.</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="420"/>
+        <location filename="editor.cpp" line="425"/>
         <source>Exact seeking failed.</source>
         <translation>Genaue Positionierung fehlgeschlagen.</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="602"/>
-        <location filename="editor.cpp" line="686"/>
+        <location filename="editor.cpp" line="607"/>
+        <location filename="editor.cpp" line="691"/>
         <source>Open cutlist</source>
         <translation>Schnittliste öffnen</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="604"/>
-        <location filename="editor.cpp" line="688"/>
+        <location filename="editor.cpp" line="609"/>
+        <location filename="editor.cpp" line="693"/>
         <source>Cutlists (*.cut)</source>
         <translation>Schnittlisten (*.cut)</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="613"/>
+        <location filename="editor.cpp" line="618"/>
         <source>Could not open cutlist file</source>
         <translation>Fehler beim Öffnen der Schnittliste</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="619"/>
+        <location filename="editor.cpp" line="624"/>
         <source>Cutlist file is damaged</source>
         <translation>Schnittlisten-Datei ist korrupt</translation>
     </message>
     <message>
-        <location filename="editor.cpp" line="698"/>
+        <location filename="editor.cpp" line="703"/>
         <source>Could not open output file</source>
         <translation>Fehler beim Öffnen der Ausgabedatei</translation>
     </message>
