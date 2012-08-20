@@ -189,20 +189,20 @@ int H264::init()
 	outputStream()->codec->thread_count = 1;
 	
 	AVCodecContext* ctx = outputStream()->codec;
-	ctx->bit_rate = 3 * 500 * 1024;
-	ctx->rc_max_rate = 0;
-	ctx->rc_buffer_size = 0;
-	ctx->gop_size = 40;
-	ctx->coder_type = 1;
-	ctx->me_cmp = 1;
-	ctx->me_range = 16;
+// 	ctx->bit_rate = 3 * 500 * 1024;
+// 	ctx->rc_max_rate = 0;
+// 	ctx->rc_buffer_size = 0;
+// 	ctx->gop_size = 40;
+// 	ctx->coder_type = 1;
+// 	ctx->me_cmp = 1;
+// 	ctx->me_range = 16;
 	ctx->colorspace = AVCOL_SPC_BT709;
 // 	ctx->flags2 |= CODEC_FLAG2_8X8DCT;
 	
 	m_nc = cutList().nextCutPoint(0);
 	m_isCutout = m_nc->direction == CutPoint::IN;
 	
-	m_startDecodeOffset = av_rescale_q(10, (AVRational){1,1}, stream()->time_base);
+	m_startDecodeOffset = av_rescale_q(7, (AVRational){1,1}, stream()->time_base);
 	
 	m_encodeBuffer = (uint8_t*)av_malloc(ENCODE_BUFSIZE);
 	
@@ -266,7 +266,12 @@ int H264::handlePacket(AVPacket* packet)
 			m_encFrameCount = 0;
 			
 			log_debug("Opening encoder for frame with PTS %'10lld", packet->dts);
-			if(avcodec_open2(outputStream()->codec, m_codec, NULL) != 0)
+
+			AVDictionary* opts = 0;
+			av_dict_set(&opts, "profile", "main", 0);
+			av_dict_set(&opts, "preset", "ultrafast", 0);
+			
+			if(avcodec_open2(outputStream()->codec, m_codec, &opts) != 0)
 				return error("Could not open encoder");
 		}
 	}
@@ -289,10 +294,10 @@ int H264::handlePacket(AVPacket* packet)
 	
 	if(m_syncing && gotFrame && m_frame.pict_type == 1)
 	{
-		log_debug("SYNC: Flushing out encoder");
 		// Flush out encoder
 		while(1)
 		{
+			log_debug("SYNC: Flushing out encoder");
 			bytes = avcodec_encode_video(
 				outputStream()->codec,
 				m_encodeBuffer, ENCODE_BUFSIZE,
@@ -318,11 +323,14 @@ int H264::handlePacket(AVPacket* packet)
 			if(writeOutputPacket(m_encodeBuffer, bytes, pts) != 0)
 				return error("SYNC: (encoder) Could not write packet");
 		}
+		log_debug("SYNC: closing encoder");
 		avcodec_close(outputStream()->codec);
 		
 		// Flush out sync buffer
 		for(int i = 0; i < m_syncBuffer.size(); ++i)
 		{
+			log_debug("SYNC: writing packet from buffer");
+
 			AVPacket* packet = &m_syncBuffer[i];
 			if(packet->pts < m_syncPoint)
 			{
