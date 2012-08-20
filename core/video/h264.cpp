@@ -481,9 +481,6 @@ void H264::parseNAL(uint8_t* buf, int size)
 		int id = get_ue_golomb(&gb);
 		int nal_size = (next_start < 0) ? (size - off) : (next_start - off);
 		
-		uint8_t* data = (uint8_t*)av_malloc(nal_size+4);
-		memcpy(data, buf + off - 4, nal_size+4);
-		
 		switch(type)
 		{
 			case NAL_SPS:
@@ -491,7 +488,8 @@ void H264::parseNAL(uint8_t* buf, int size)
 					continue;
 				
 				free(m_sps.data);
-				m_sps.data = data;
+				m_sps.data = (uint8_t*)av_malloc(nal_size+4);
+				memcpy(m_sps.data, buf + off - 4, nal_size+4);
 				m_sps.size = nal_size+4;
 				
 				log_debug("NAL_SPS (id=%d)", id);
@@ -501,7 +499,8 @@ void H264::parseNAL(uint8_t* buf, int size)
 					continue;
 				
 				free(m_pps.data);
-				m_pps.data = data;
+				m_pps.data = (uint8_t*)av_malloc(nal_size+4);
+				memcpy(m_pps.data, buf + off - 4, nal_size+4);
 				m_pps.size = nal_size+4;
 				
 				log_debug("NAL_PPS (id=%d)", id);
